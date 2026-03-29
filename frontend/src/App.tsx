@@ -17,6 +17,7 @@ import Stats from './pages/Stats';
 import Settings from './pages/Settings';
 import Kiosk from './pages/Kiosk';
 import ParentView from './pages/ParentView';
+import LoginCallback from './pages/LoginCallback';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -33,6 +34,7 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/login/callback" element={<LoginCallback />} />
           <Route path="/setup" element={<Setup />} />
           <Route path="/kiosk" element={<Kiosk />} />
           <Route path="/parent" element={<ParentView />} />

@@ -1,4 +1,7 @@
+import urllib.parse
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,18 +60,17 @@ async def google_callback(code: str, db: AsyncSession = Depends(get_db)):
         await db.refresh(user)
 
     access_token = create_access_token({"sub": user.id})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "picture": user.picture,
-            "role": user.role.value,
-            "academy_id": user.academy_id,
-        },
-    }
+    # Redirect to frontend with token in URL fragment
+    params = urllib.parse.urlencode({
+        "token": access_token,
+        "user_id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role.value,
+        "academy_id": user.academy_id or "",
+        "picture": user.picture or "",
+    })
+    return RedirectResponse(url=f"{settings.FRONTEND_URL}/login/callback?{params}")
 
 
 @router.get("/me")

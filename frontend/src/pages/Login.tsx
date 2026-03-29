@@ -1,31 +1,17 @@
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import api from '../lib/api';
 
 export default function Login() {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
 
   useEffect(() => {
     if (user) {
       navigate(user.academy_id ? '/' : '/setup');
     }
   }, [user, navigate]);
-
-  // Handle Google OAuth callback
-  useEffect(() => {
-    const code = params.get('code');
-    if (code) {
-      api.get(`/auth/google/callback?code=${code}`)
-        .then((res) => {
-          login(res.data.access_token, res.data.user);
-          navigate(res.data.user.academy_id ? '/' : '/setup');
-        })
-        .catch((err) => console.error('Login failed:', err));
-    }
-  }, [params, login, navigate]);
 
   const handleGoogleLogin = async () => {
     try {
