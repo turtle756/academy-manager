@@ -1,10 +1,7 @@
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import { useSearchParams } from 'react-router-dom';
 
 export default function LoginCallback() {
-  const { login } = useAuth();
-  const navigate = useNavigate();
   const [params] = useSearchParams();
 
   useEffect(() => {
@@ -15,15 +12,17 @@ export default function LoginCallback() {
         email: params.get('email') || '',
         name: params.get('name') || '',
         picture: params.get('picture') || null,
-        role: (params.get('role') || 'owner') as 'owner' | 'teacher',
+        role: params.get('role') || 'owner',
         academy_id: params.get('academy_id') ? Number(params.get('academy_id')) : null,
       };
-      login(token, user);
-      navigate(user.academy_id ? '/' : '/setup');
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      // Full page reload so AuthProvider picks up the token
+      window.location.href = user.academy_id ? '/' : '/setup';
     } else {
-      navigate('/login');
+      window.location.href = '/login';
     }
-  }, [params, login, navigate]);
+  }, [params]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
