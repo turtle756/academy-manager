@@ -43,6 +43,11 @@ app.include_router(documents.router, prefix="/api/documents", tags=["documents"]
 app.include_router(parent.router, prefix="/api/parent", tags=["parent"])
 
 # Serve React build in production
-static_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
-if static_path.exists():
-    app.mount("/", StaticFiles(directory=str(static_path), html=True), name="frontend")
+# Check multiple possible paths for the frontend build
+for candidate in [
+    Path(__file__).parent.parent / "frontend" / "dist",       # /app/frontend/dist (Docker)
+    Path(__file__).parent.parent.parent / "frontend" / "dist", # local dev
+]:
+    if candidate.exists():
+        app.mount("/", StaticFiles(directory=str(candidate), html=True), name="frontend")
+        break
