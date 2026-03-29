@@ -1,0 +1,61 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './lib/auth';
+import Layout from './components/Layout';
+import Login from './pages/Login';
+import Setup from './pages/Setup';
+import Dashboard from './pages/Dashboard';
+import Students from './pages/Students';
+import Classrooms from './pages/Classrooms';
+import Schedules from './pages/Schedules';
+import Attendance from './pages/Attendance';
+import Payments from './pages/Payments';
+import Grades from './pages/Grades';
+import Counseling from './pages/Counseling';
+import Notices from './pages/Notices';
+import Documents from './pages/Documents';
+import Stats from './pages/Stats';
+import Settings from './pages/Settings';
+import Kiosk from './pages/Kiosk';
+import ParentView from './pages/ParentView';
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>;
+  if (!user) return <Navigate to="/login" />;
+  if (!user.academy_id) return <Navigate to="/setup" />;
+  return <>{children}</>;
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/setup" element={<Setup />} />
+          <Route path="/kiosk" element={<Kiosk />} />
+          <Route path="/parent" element={<ParentView />} />
+
+          {/* Protected routes */}
+          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/students" element={<Students />} />
+            <Route path="/classrooms" element={<Classrooms />} />
+            <Route path="/schedules" element={<Schedules />} />
+            <Route path="/attendance" element={<Attendance />} />
+            <Route path="/payments" element={<Payments />} />
+            <Route path="/grades" element={<Grades />} />
+            <Route path="/counseling" element={<Counseling />} />
+            <Route path="/notices" element={<Notices />} />
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/stats" element={<Stats />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+
+export default App;
