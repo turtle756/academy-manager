@@ -8,12 +8,13 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routers import auth, academies, classrooms, students, schedules, attendance, payments, grades, counseling, notices, stats, documents, parent
+from app.routers import auth, academies, classrooms, students, schedules, attendance, payments, grades, counseling, notices, stats, documents, parent, invitations
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield
 
@@ -42,6 +43,7 @@ app.include_router(notices.router, prefix="/api/notices", tags=["notices"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
 app.include_router(parent.router, prefix="/api/parent", tags=["parent"])
+app.include_router(invitations.router, prefix="/api/invitations", tags=["invitations"])
 
 # Serve React build in production
 _static_dir: Path | None = None

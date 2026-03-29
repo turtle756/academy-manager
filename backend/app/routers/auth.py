@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.auth import create_access_token, get_current_user
 from app.models.user import User, UserRole
+from app.models.invitation import Invitation
 
 router = APIRouter()
 
@@ -49,12 +50,31 @@ async def google_callback(code: str, db: AsyncSession = Depends(get_db)):
     user = result.scalar_one_or_none()
 
     if user is None:
-        user = User(
-            email=email,
-            name=userinfo.get("name", ""),
-            picture=userinfo.get("picture"),
-            role=UserRole.OWNER,
+        # Check if there's a pending invitation for this email
+        inv_result = await db.execute(
+            select(Invitation).where(
+                Invitation.email == email,
+                Invitation.used == False,
+            )
         )
+        invitation = inv_result.scalar_one_or_none()
+
+        if invitation:
+            user = User(
+                email=email,
+                name=userinfo.get("name", ""),
+                picture=userinfo.get("picture"),
+                role=UserRole(invitation.role.value),
+                academy_id=invitation.academy_id,
+            )
+            invitation.used = True
+        else:
+            user = User(
+                email=email,
+                name=userinfo.get("name", ""),
+                picture=userinfo.get("picture"),
+                role=UserRole.OWNER,
+            )
         db.add(user)
         await db.commit()
         await db.refresh(user)

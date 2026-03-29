@@ -8,6 +8,7 @@ from app.models.payment import Payment, Invoice
 from app.models.grade import Grade
 from app.models.counseling import Counseling
 from app.models.notice import Notice
+from app.models.invitation import Invitation
 
 __all__ = [
     "User",
