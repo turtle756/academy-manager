@@ -4,6 +4,13 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     APP_NAME: str = "학원 올인원 관리"
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/academy"
+
+    @property
+    def async_database_url(self) -> str:
+        url = self.DATABASE_URL
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
     SECRET_KEY: str = "change-me-in-production"
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
