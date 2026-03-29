@@ -4,13 +4,13 @@ import { useAuth } from '../lib/auth';
 
 export default function SettingsPage() {
   useAuth();
-  const [form, setForm] = useState({ name: '', address: '', phone: '', bank_name: '', bank_account: '', bank_holder: '' });
+  const [form, setForm] = useState({ name: '', address: '', address_detail: '', phone: '', bank_name: '', bank_account: '', bank_holder: '' });
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     api.get('/academies').then(r => {
       const d = r.data;
-      setForm({ name: d.name || '', address: d.address || '', phone: d.phone || '', bank_name: d.bank_name || '', bank_account: d.bank_account || '', bank_holder: d.bank_holder || '' });
+      setForm({ name: d.name || '', address: d.address || '', address_detail: d.address_detail || '', phone: d.phone || '', bank_name: d.bank_name || '', bank_account: d.bank_account || '', bank_holder: d.bank_holder || '' });
     }).catch(() => {});
   }, []);
 
@@ -38,6 +38,9 @@ export default function SettingsPage() {
               <input value={form.address} readOnly onClick={() => { new (window as any).daum.Postcode({ oncomplete: (data: any) => { setForm({...form, address: data.roadAddress || data.jibunAddress}); } }).open(); }} className="flex-1 px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-gray-50" placeholder="클릭하여 주소 검색" />
               <button type="button" onClick={() => { new (window as any).daum.Postcode({ oncomplete: (data: any) => { setForm({...form, address: data.roadAddress || data.jibunAddress}); } }).open(); }} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm whitespace-nowrap">주소 검색</button>
             </div>
+            {form.address && (
+              <input value={form.address_detail} onChange={e => setForm({...form, address_detail: e.target.value})} className="w-full mt-2 px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="상세주소 (동/호수 등)" />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">연락처</label>

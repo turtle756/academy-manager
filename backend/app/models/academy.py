@@ -12,6 +12,7 @@ class Academy(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
     address: Mapped[str | None] = mapped_column(String(500))
+    address_detail: Mapped[str | None] = mapped_column(String(200))
     phone: Mapped[str | None] = mapped_column(String(20))
     bank_name: Mapped[str | None] = mapped_column(String(50))
     bank_account: Mapped[str | None] = mapped_column(String(50))

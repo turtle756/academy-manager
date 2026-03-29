@@ -9,6 +9,7 @@ export default function Setup() {
   const [form, setForm] = useState({
     name: '',
     address: '',
+    address_detail: '',
     phone: '',
     bank_name: '',
     bank_account: '',
@@ -75,6 +76,15 @@ export default function Setup() {
                 주소 검색
               </button>
             </div>
+            {form.address && (
+              <input
+                value={form.address_detail}
+                onChange={(e) => setForm({ ...form, address_detail: e.target.value })}
+                className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                placeholder="상세주소 (동/호수 등)"
+                autoFocus
+              />
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">연락처</label>

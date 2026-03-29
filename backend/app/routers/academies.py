@@ -13,6 +13,7 @@ router = APIRouter()
 class AcademyCreate(BaseModel):
     name: str
     address: str | None = None
+    address_detail: str | None = None
     phone: str | None = None
     bank_name: str | None = None
     bank_account: str | None = None
@@ -22,6 +23,7 @@ class AcademyCreate(BaseModel):
 class AcademyUpdate(BaseModel):
     name: str | None = None
     address: str | None = None
+    address_detail: str | None = None
     phone: str | None = None
     bank_name: str | None = None
     bank_account: str | None = None
