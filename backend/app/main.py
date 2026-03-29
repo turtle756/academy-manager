@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.core.database import engine, Base
@@ -43,11 +44,24 @@ app.include_router(documents.router, prefix="/api/documents", tags=["documents"]
 app.include_router(parent.router, prefix="/api/parent", tags=["parent"])
 
 # Serve React build in production
-# Check multiple possible paths for the frontend build
+_static_dir: Path | None = None
 for candidate in [
     Path(__file__).parent.parent / "frontend" / "dist",       # /app/frontend/dist (Docker)
     Path(__file__).parent.parent.parent / "frontend" / "dist", # local dev
 ]:
     if candidate.exists():
-        app.mount("/", StaticFiles(directory=str(candidate), html=True), name="frontend")
+        _static_dir = candidate
+        app.mount("/assets", StaticFiles(directory=str(candidate / "assets")), name="static-assets")
         break
+
+
+@app.get("/{full_path:path}")
+async def serve_spa(request: Request, full_path: str):
+    if _static_dir is None:
+        return {"detail": "Frontend not built"}
+    # Try to serve the exact file first
+    file_path = _static_dir / full_path
+    if file_path.is_file():
+        return FileResponse(file_path)
+    # Otherwise return index.html for SPA routing
+    return FileResponse(_static_dir / "index.html")
