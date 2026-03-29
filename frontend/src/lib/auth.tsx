@@ -20,17 +20,36 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => {
+    // Initialize from localStorage immediately
+    const saved = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    if (saved && token) {
+      try { return JSON.parse(saved); } catch { return null; }
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    // If we have a cached user, no need to show loading
+    const saved = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    return !!(token && !saved);
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
+      // Background verify — update user data but don't block rendering
       api.get('/auth/me')
-        .then((res) => setUser(res.data))
+        .then((res) => {
+          setUser(res.data);
+          localStorage.setItem('user', JSON.stringify(res.data));
+        })
         .catch(() => {
+          // Token invalid — clear everything
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          setUser(null);
         })
         .finally(() => setLoading(false));
     } else {
