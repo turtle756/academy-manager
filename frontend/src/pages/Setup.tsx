@@ -47,12 +47,34 @@ export default function Setup() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">주소</label>
-            <input
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              placeholder="서울시 강남구..."
-            />
+            <div className="flex gap-2">
+              <input
+                value={form.address}
+                readOnly
+                onClick={() => {
+                  new (window as any).daum.Postcode({
+                    oncomplete: (data: any) => {
+                      setForm({ ...form, address: data.roadAddress || data.jibunAddress });
+                    },
+                  }).open();
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none cursor-pointer bg-gray-50"
+                placeholder="클릭하여 주소 검색"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  new (window as any).daum.Postcode({
+                    oncomplete: (data: any) => {
+                      setForm({ ...form, address: data.roadAddress || data.jibunAddress });
+                    },
+                  }).open();
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm whitespace-nowrap"
+              >
+                주소 검색
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">연락처</label>
