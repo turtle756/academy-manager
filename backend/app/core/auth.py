@@ -23,8 +23,9 @@ def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
+    # sub must be string per JWT spec
+    to_encode["sub"] = str(to_encode["sub"])
     token = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
-    logger.info(f"Token created for sub={data.get('sub')}, key_prefix={settings.SECRET_KEY[:8]}")
     return token
 
 
@@ -37,12 +38,10 @@ async def get_current_user(
 
     try:
         payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[ALGORITHM])
-        logger.info(f"Token decoded OK, sub={payload.get('sub')}, key_prefix={settings.SECRET_KEY[:8]}")
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        user_id = int(payload.get("sub"))
+        if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token: no sub")
     except JWTError as e:
-        logger.error(f"Token decode FAILED: {e}, key_prefix={settings.SECRET_KEY[:8]}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token: {e}")
 
     result = await db.execute(select(User).where(User.id == user_id))
