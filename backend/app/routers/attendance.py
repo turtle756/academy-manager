@@ -42,6 +42,14 @@ class PINCheckIn(BaseModel):
     classroom_id: int
 
 
+class QRCardCheckIn(BaseModel):
+    qr_token: str  # 학생 고유 QR 토큰 (카드에 인쇄된 것)
+
+
+class NFCCheckIn(BaseModel):
+    nfc_uid: str  # NFC 카드 UID
+
+
 async def notify_session(session_id: int, data: dict):
     for ws in active_connections.get(session_id, []):
         try:
@@ -354,6 +362,116 @@ async def attendance_history(
         }
         for a in result.scalars().all()
     ]
+
+
+async def _kiosk_check_in(student: Student, method: AttendanceMethod, db: AsyncSession) -> dict:
+    """키오스크 공통 출석 처리 — 활성 세션 찾아서 출석 기록"""
+    # Find any active session for student's classrooms
+    from app.models.classroom import StudentClassroom
+    enrolled = await db.execute(
+        select(StudentClassroom.classroom_id).where(StudentClassroom.student_id == student.id)
+    )
+    classroom_ids = [row[0] for row in enrolled.all()]
+
+    if not classroom_ids:
+        # No classroom — just record academy-level attendance
+        attendance = Attendance(
+            student_id=student.id,
+            session_id=None,
+            classroom_id=0,
+            academy_id=student.academy_id,
+            status=AttendanceStatus.PRESENT,
+            method=method,
+            date=date.today(),
+        )
+        db.add(attendance)
+        await db.commit()
+        return {"ok": True, "student_name": student.name, "status": "present", "method": method.value}
+
+    # Find active session for any of student's classrooms
+    result = await db.execute(
+        select(AttendanceSession).where(
+            AttendanceSession.classroom_id.in_(classroom_ids),
+            AttendanceSession.is_active == True,
+            AttendanceSession.date == date.today(),
+        )
+    )
+    session = result.scalar_one_or_none()
+
+    classroom_id = session.classroom_id if session else classroom_ids[0]
+    session_id = session.id if session else None
+
+    # Check duplicate
+    dup_query = select(Attendance).where(
+        Attendance.student_id == student.id,
+        Attendance.date == date.today(),
+        Attendance.classroom_id == classroom_id,
+    )
+    if session_id:
+        dup_query = dup_query.where(Attendance.session_id == session_id)
+    existing = await db.execute(dup_query)
+    if existing.scalar_one_or_none():
+        return {"ok": True, "student_name": student.name, "status": "already_checked", "method": method.value}
+
+    attendance = Attendance(
+        student_id=student.id,
+        session_id=session_id,
+        classroom_id=classroom_id,
+        academy_id=student.academy_id,
+        status=AttendanceStatus.PRESENT,
+        method=method,
+        date=date.today(),
+    )
+    db.add(attendance)
+    await db.commit()
+
+    if session_id:
+        await notify_session(session_id, {
+            "type": "check_in",
+            "student_id": student.id,
+            "student_name": student.name,
+            "status": "present",
+            "method": method.value,
+        })
+
+    return {"ok": True, "student_name": student.name, "status": "present", "method": method.value}
+
+
+@router.post("/check-in/qr-card")
+async def qr_card_check_in(
+    data: QRCardCheckIn,
+    db: AsyncSession = Depends(get_db),
+):
+    """학생 고유 QR 카드로 출석"""
+    # Extract token — format is "ACADEMY_CHECKIN:<token>"
+    token = data.qr_token
+    if token.startswith("ACADEMY_CHECKIN:"):
+        token = token.split(":", 1)[1]
+
+    result = await db.execute(
+        select(Student).where(Student.qr_token == token)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=400, detail="유효하지 않은 QR 카드입니다")
+
+    return await _kiosk_check_in(student, AttendanceMethod.QR, db)
+
+
+@router.post("/check-in/nfc")
+async def nfc_check_in(
+    data: NFCCheckIn,
+    db: AsyncSession = Depends(get_db),
+):
+    """NFC 카드 UID로 출석"""
+    result = await db.execute(
+        select(Student).where(Student.nfc_uid == data.nfc_uid)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=400, detail="등록되지 않은 NFC 카드입니다")
+
+    return await _kiosk_check_in(student, AttendanceMethod.KIOSK, db)
 
 
 @router.websocket("/ws/{session_id}")

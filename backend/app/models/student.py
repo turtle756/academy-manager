@@ -17,6 +17,8 @@ class Student(Base):
     school: Mapped[str | None] = mapped_column(String(100))
     grade: Mapped[str | None] = mapped_column(String(20))
     pin_code: Mapped[str | None] = mapped_column(String(10))
+    nfc_uid: Mapped[str | None] = mapped_column(String(100), unique=True)
+    qr_token: Mapped[str | None] = mapped_column(String(100), unique=True)
     academy_id: Mapped[int] = mapped_column(ForeignKey("academies.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
