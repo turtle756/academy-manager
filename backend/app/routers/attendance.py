@@ -378,7 +378,7 @@ async def _kiosk_check_in(student: Student, method: AttendanceMethod, db: AsyncS
         attendance = Attendance(
             student_id=student.id,
             session_id=None,
-            classroom_id=0,
+            classroom_id=None,
             academy_id=student.academy_id,
             status=AttendanceStatus.PRESENT,
             method=method,

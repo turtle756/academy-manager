@@ -47,7 +47,7 @@ class Attendance(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id"))
     session_id: Mapped[int | None] = mapped_column(ForeignKey("attendance_sessions.id"))
-    classroom_id: Mapped[int] = mapped_column(ForeignKey("classrooms.id"))
+    classroom_id: Mapped[int | None] = mapped_column(ForeignKey("classrooms.id"), nullable=True)
     academy_id: Mapped[int] = mapped_column(ForeignKey("academies.id"))
     status: Mapped[AttendanceStatus] = mapped_column(Enum(AttendanceStatus))
     method: Mapped[AttendanceMethod] = mapped_column(Enum(AttendanceMethod))
