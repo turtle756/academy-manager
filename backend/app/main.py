@@ -13,7 +13,11 @@ from app.routers import auth, academies, classrooms, students, schedules, attend
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from sqlalchemy import text
     async with engine.begin() as conn:
+        # Force drop all tables to reset schema
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
         await conn.run_sync(Base.metadata.create_all)
     yield
 
