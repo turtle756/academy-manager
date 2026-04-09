@@ -13,9 +13,8 @@ import qrcode
 from qrcode.image.svg import SvgImage
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
-from app.core.config import settings
-from app.models.user import User
+from app.core.auth import get_membership
+from app.models.user_academy import UserAcademy
 from app.models.student import Student
 
 router = APIRouter()
@@ -49,11 +48,11 @@ class StudentUpdate(BaseModel):
 
 @router.get("")
 async def list_students(
-    user: User = Depends(get_current_user),
+    membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Student).where(Student.academy_id == user.academy_id)
+        select(Student).where(Student.academy_id == membership.academy_id)
     )
     return result.scalars().all()
 
@@ -61,14 +60,14 @@ async def list_students(
 @router.post("")
 async def create_student(
     data: StudentCreate,
-    user: User = Depends(get_current_user),
+    membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
     student = Student(
         **data.model_dump(),
         pin_code=generate_pin(),
         qr_token=generate_qr_token(),
-        academy_id=user.academy_id,
+        academy_id=membership.academy_id,
     )
     db.add(student)
     await db.commit()
@@ -79,11 +78,11 @@ async def create_student(
 @router.get("/{student_id}")
 async def get_student(
     student_id: int,
-    user: User = Depends(get_current_user),
+    membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
     student = await db.get(Student, student_id)
-    if not student or student.academy_id != user.academy_id:
+    if not student or student.academy_id != membership.academy_id:
         raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다")
     return student
 
@@ -92,16 +91,14 @@ async def get_student(
 async def update_student(
     student_id: int,
     data: StudentUpdate,
-    user: User = Depends(get_current_user),
+    membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
     student = await db.get(Student, student_id)
-    if not student or student.academy_id != user.academy_id:
+    if not student or student.academy_id != membership.academy_id:
         raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다")
-
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(student, key, value)
-
     await db.commit()
     await db.refresh(student)
     return student
@@ -110,13 +107,12 @@ async def update_student(
 @router.delete("/{student_id}")
 async def delete_student(
     student_id: int,
-    user: User = Depends(get_current_user),
+    membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
     student = await db.get(Student, student_id)
-    if not student or student.academy_id != user.academy_id:
+    if not student or student.academy_id != membership.academy_id:
         raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다")
-
     await db.delete(student)
     await db.commit()
     return {"ok": True}
@@ -125,24 +121,20 @@ async def delete_student(
 @router.get("/{student_id}/qr-card")
 async def get_qr_card_svg(
     student_id: int,
-    user: User = Depends(get_current_user),
+    membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
-    """학생 개인 QR 카드 SVG 이미지"""
     student = await db.get(Student, student_id)
-    if not student or student.academy_id != user.academy_id:
+    if not student or student.academy_id != membership.academy_id:
         raise HTTPException(status_code=404)
-
     if not student.qr_token:
         student.qr_token = generate_qr_token()
         await db.commit()
-
     qr_data = f"ACADEMY_CHECKIN:{student.qr_token}"
     img = qrcode.make(qr_data, image_factory=SvgImage, box_size=10)
     buf = io.BytesIO()
     img.save(buf)
     buf.seek(0)
-
     return StreamingResponse(buf, media_type="image/svg+xml")
 
 
@@ -150,21 +142,15 @@ async def get_qr_card_svg(
 async def register_nfc(
     student_id: int,
     nfc_uid: str,
-    user: User = Depends(get_current_user),
+    membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
-    """NFC 카드 UID를 학생에게 등록"""
     student = await db.get(Student, student_id)
-    if not student or student.academy_id != user.academy_id:
+    if not student or student.academy_id != membership.academy_id:
         raise HTTPException(status_code=404)
-
-    # Check if UID already used
-    existing = await db.execute(
-        select(Student).where(Student.nfc_uid == nfc_uid)
-    )
+    existing = await db.execute(select(Student).where(Student.nfc_uid == nfc_uid))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="이미 등록된 NFC 카드입니다")
-
     student.nfc_uid = nfc_uid
     await db.commit()
     return {"ok": True, "student_name": student.name}
@@ -173,14 +159,12 @@ async def register_nfc(
 @router.post("/{student_id}/reset-qr")
 async def reset_qr_token(
     student_id: int,
-    user: User = Depends(get_current_user),
+    membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
-    """QR 토큰 재발급 (카드 분실 시)"""
     student = await db.get(Student, student_id)
-    if not student or student.academy_id != user.academy_id:
+    if not student or student.academy_id != membership.academy_id:
         raise HTTPException(status_code=404)
-
     student.qr_token = generate_qr_token()
     await db.commit()
     return {"ok": True, "qr_token": student.qr_token}

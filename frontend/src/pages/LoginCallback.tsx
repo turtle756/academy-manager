@@ -12,13 +12,25 @@ export default function LoginCallback() {
         email: params.get('email') || '',
         name: params.get('name') || '',
         picture: params.get('picture') || null,
-        role: params.get('role') || 'owner',
-        academy_id: params.get('academy_id') ? Number(params.get('academy_id')) : null,
       };
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      // Full page reload so AuthProvider picks up the token
-      window.location.href = user.academy_id ? '/' : '/setup';
+
+      const academyCount = Number(params.get('academy_count') || 0);
+      const academyId = params.get('academy_id');
+
+      if (academyCount === 1 && academyId) {
+        // 학원 1개 → 바로 진입
+        localStorage.setItem('academy_id', academyId);
+        localStorage.setItem('academy_role', params.get('role') || '');
+        window.location.href = '/';
+      } else if (academyCount === 0) {
+        // 학원 없음 → 학원 선택 (빠른 세팅 가능)
+        window.location.href = '/select-academy';
+      } else {
+        // 학원 여러 개 → 선택
+        window.location.href = '/select-academy';
+      }
     } else {
       window.location.href = '/login';
     }

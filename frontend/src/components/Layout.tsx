@@ -30,10 +30,11 @@ const teacherNav = [
 ];
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, academyName } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const nav = user?.role === 'owner' ? ownerNav : teacherNav;
+  const { academyRole } = useAuth();
+  const nav = academyRole === 'owner' ? ownerNav : teacherNav;
 
   return (
     <div className="min-h-screen flex">
@@ -50,8 +51,14 @@ export default function Layout() {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="p-4 border-b border-gray-200">
-          <h1 className="text-lg font-bold text-gray-900">학원 관리</h1>
-          {user && <p className="text-sm text-gray-500 mt-1">{user.name}</p>}
+          <button
+            onClick={() => { localStorage.removeItem('academy_id'); localStorage.removeItem('academy_role'); localStorage.removeItem('academy_name'); window.location.href = '/select-academy'; }}
+            className="text-left w-full hover:bg-gray-50 rounded-lg p-1 -m-1 transition-colors"
+            title="학원 전환"
+          >
+            <h1 className="text-lg font-bold text-gray-900">{academyName || '학원 관리'}</h1>
+            {user && <p className="text-sm text-gray-500 mt-0.5">{user.name}</p>}
+          </button>
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">

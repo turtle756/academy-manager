@@ -9,6 +9,10 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const academyId = localStorage.getItem('academy_id');
+  if (academyId) {
+    config.headers['X-Academy-Id'] = academyId;
+  }
   return config;
 });
 
@@ -16,11 +20,11 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      // Don't auto-redirect for /auth/me — AuthProvider handles that
       const url = err.config?.url || '';
-      if (!url.includes('/auth/me')) {
+      if (!url.includes('/auth/me') && !url.includes('/academies/my')) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('academy_id');
         window.location.href = '/login';
       }
     }

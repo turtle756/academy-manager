@@ -19,7 +19,6 @@ class Academy(Base):
     bank_holder: Mapped[str | None] = mapped_column(String(50))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    users: Mapped[list["User"]] = relationship(back_populates="academy")
     classrooms: Mapped[list["Classroom"]] = relationship(back_populates="academy")
     students: Mapped[list["Student"]] = relationship(back_populates="academy")
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="academy")

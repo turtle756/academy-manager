@@ -7,11 +7,14 @@ export default function Login() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const { academyId } = useAuth();
   useEffect(() => {
-    if (user) {
-      navigate(user.academy_id ? '/' : '/setup');
+    if (user && academyId) {
+      navigate('/');
+    } else if (user) {
+      navigate('/select-academy');
     }
-  }, [user, navigate]);
+  }, [user, academyId, navigate]);
 
   const handleGoogleLogin = async () => {
     try {

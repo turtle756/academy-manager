@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
 import api from '../lib/api';
 
 export default function Setup() {
-  const { login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: '',
@@ -20,10 +18,7 @@ export default function Setup() {
     e.preventDefault();
     try {
       await api.post('/academies', form);
-      // Refresh user data
-      const res = await api.get('/auth/me');
-      login(localStorage.getItem('token')!, res.data);
-      navigate('/');
+      navigate('/select-academy');
     } catch (err) {
       console.error(err);
     }
@@ -142,9 +137,7 @@ export default function Setup() {
             onClick={async () => {
               try {
                 await api.post('/auth/quick-setup');
-                const res = await api.get('/auth/me');
-                login(localStorage.getItem('token')!, res.data);
-                window.location.href = '/';
+                window.location.href = '/select-academy';
               } catch (err) { console.error(err); }
             }}
             className="w-full py-2 text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg hover:bg-gray-50"

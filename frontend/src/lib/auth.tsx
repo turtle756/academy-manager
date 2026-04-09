@@ -6,14 +6,14 @@ interface User {
   email: string;
   name: string;
   picture: string | null;
-  role: 'owner' | 'teacher';
-  academy_id: number | null;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (token: string, user: User) => void;
+  academyId: number | null;
+  academyRole: string | null;
+  academyName: string | null;
   logout: () => void;
 }
 
@@ -21,7 +21,6 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    // Initialize from localStorage immediately
     const saved = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     if (saved && token) {
@@ -30,23 +29,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   });
   const [loading, setLoading] = useState(() => {
-    // If we have a cached user, no need to show loading
     const saved = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     return !!(token && !saved);
   });
 
+  const academyId = localStorage.getItem('academy_id') ? Number(localStorage.getItem('academy_id')) : null;
+  const academyRole = localStorage.getItem('academy_role');
+  const academyName = localStorage.getItem('academy_name');
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Background verify — update user data but don't block rendering
       api.get('/auth/me')
         .then((res) => {
           setUser(res.data);
           localStorage.setItem('user', JSON.stringify(res.data));
         })
         .catch(() => {
-          // Token invalid — clear everything
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           setUser(null);
@@ -57,20 +57,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = (token: string, user: User) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    setUser(user);
-  };
-
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.clear();
     setUser(null);
+    window.location.href = '/login';
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, academyId, academyRole, academyName, logout }}>
       {children}
     </AuthContext.Provider>
   );
