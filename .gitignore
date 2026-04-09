@@ -5,3 +5,8 @@ node_modules/
 dist/
 .venv/
 *.egg-info/
+
+kiosk-app/app/build/
+kiosk-app/.gradle/
+kiosk-app/build/
+kiosk-app/local.properties
