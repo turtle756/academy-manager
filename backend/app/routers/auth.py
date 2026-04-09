@@ -103,3 +103,40 @@ async def get_me(user: User = Depends(get_current_user)):
         "role": user.role.value,
         "academy_id": user.academy_id,
     }
+
+
+@router.post("/quick-setup")
+async def quick_setup(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """테스트용 — 학원 + 원생 1명 즉시 생성"""
+    from app.models.academy import Academy
+    from app.models.student import Student
+    import secrets, random, string
+
+    if user.academy_id:
+        academy = await db.get(Academy, user.academy_id)
+    else:
+        academy = Academy(name="테스트 학원", address="서울시 강남구 테헤란로 1", phone="02-1234-5678")
+        db.add(academy)
+        await db.flush()
+        user.academy_id = academy.id
+
+    # 테스트 원생 추가
+    student = Student(
+        name="테스트 학생",
+        phone="010-0000-0001",
+        parent_phone="010-0000-0002",
+        parent_name="테스트 학부모",
+        pin_code="".join(random.choices(string.digits, k=4)),
+        qr_token=secrets.token_urlsafe(16),
+        academy_id=academy.id,
+    )
+    db.add(student)
+    await db.commit()
+    await db.refresh(user)
+    await db.refresh(student)
+
+    return {
+        "academy_id": academy.id,
+        "student": {"id": student.id, "name": student.name, "pin_code": student.pin_code},
+        "message": "테스트 세팅 완료",
+    }

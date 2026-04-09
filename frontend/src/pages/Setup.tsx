@@ -136,6 +136,22 @@ export default function Setup() {
             등록하고 시작하기
           </button>
         </form>
+
+        <div className="mt-4 pt-4 border-t border-dashed">
+          <button
+            onClick={async () => {
+              try {
+                await api.post('/auth/quick-setup');
+                const res = await api.get('/auth/me');
+                login(localStorage.getItem('token')!, res.data);
+                window.location.href = '/';
+              } catch (err) { console.error(err); }
+            }}
+            className="w-full py-2 text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            테스트용 빠른 세팅 (학원 + 원생 1명 자동 생성)
+          </button>
+        </div>
       </div>
     </div>
   );
