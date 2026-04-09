@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routers import auth, academies, classrooms, students, schedules, attendance, payments, grades, counseling, notices, stats, documents, parent, invitations
+from app.routers import auth, academies, classrooms, students, schedules, attendance, payments, grades, counseling, stats, documents, parent, invitations
 
 
 @asynccontextmanager
@@ -38,7 +38,6 @@ app.include_router(attendance.router, prefix="/api/attendance", tags=["attendanc
 app.include_router(payments.router, prefix="/api/payments", tags=["payments"])
 app.include_router(grades.router, prefix="/api/grades", tags=["grades"])
 app.include_router(counseling.router, prefix="/api/counseling", tags=["counseling"])
-app.include_router(notices.router, prefix="/api/notices", tags=["notices"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
 app.include_router(parent.router, prefix="/api/parent", tags=["parent"])

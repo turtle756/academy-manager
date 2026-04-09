@@ -1,64 +1,151 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:background="#111827"
-    android:padding="32dp">
+    android:background="#111827">
 
-    <!-- Status icon -->
-    <TextView
-        android:id="@+id/statusIcon"
-        android:layout_width="160dp"
-        android:layout_height="160dp"
+    <!-- Main check-in view -->
+    <LinearLayout
+        android:id="@+id/checkInView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
         android:gravity="center"
-        android:text="📱"
-        android:textSize="72sp"
-        android:background="@drawable/circle_bg"
-        android:layout_marginBottom="32dp" />
+        android:padding="32dp">
 
-    <!-- Title -->
-    <TextView
-        android:id="@+id/titleText"
-        android:layout_width="wrap_content"
+        <TextView
+            android:id="@+id/statusIcon"
+            android:layout_width="160dp"
+            android:layout_height="160dp"
+            android:gravity="center"
+            android:text="📱"
+            android:textSize="72sp"
+            android:background="@drawable/circle_bg"
+            android:layout_marginBottom="32dp" />
+
+        <TextView
+            android:id="@+id/titleText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="NFC 카드를 터치하세요"
+            android:textColor="#FFFFFF"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/subtitleText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="기기 뒷면에 카드를 가까이 대세요"
+            android:textColor="#9CA3AF"
+            android:textSize="16sp"
+            android:layout_marginBottom="48dp" />
+
+        <TextView
+            android:id="@+id/studentName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#FFFFFF"
+            android:textSize="36sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/timeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00:00:00"
+            android:textColor="#6B7280"
+            android:textSize="20sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="48dp" />
+    </LinearLayout>
+
+    <!-- Register mode view -->
+    <LinearLayout
+        android:id="@+id/registerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="NFC 카드 등록"
+                android:textColor="#FFFFFF"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnBackToCheckIn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="돌아가기"
+                android:backgroundTint="#374151"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/registerStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="등록할 원생을 선택하세요"
+            android:textColor="#9CA3AF"
+            android:textSize="14sp"
+            android:layout_marginBottom="12dp" />
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <LinearLayout
+                android:id="@+id/studentList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
+    </LinearLayout>
+
+    <!-- Bottom buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="NFC 카드를 터치하세요"
-        android:textColor="#FFFFFF"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp" />
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center">
 
-    <!-- Subtitle -->
-    <TextView
-        android:id="@+id/subtitleText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="기기 뒷면에 카드를 가까이 대세요"
-        android:textColor="#9CA3AF"
-        android:textSize="16sp"
-        android:layout_marginBottom="48dp" />
+        <Button
+            android:id="@+id/btnRegisterMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="카드 등록"
+            android:backgroundTint="#374151"
+            android:textColor="#9CA3AF"
+            android:textSize="12sp" />
 
-    <!-- Student name (shown after check-in) -->
-    <TextView
-        android:id="@+id/studentName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textColor="#FFFFFF"
-        android:textSize="36sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+        <Button
+            android:id="@+id/btnSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="설정"
+            android:backgroundTint="#374151"
+            android:textColor="#9CA3AF"
+            android:textSize="12sp"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
 
-    <!-- Time -->
-    <TextView
-        android:id="@+id/timeText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="00:00:00"
-        android:textColor="#6B7280"
-        android:textSize="20sp"
-        android:fontFamily="monospace"
-        android:layout_marginTop="48dp" />
-
-</LinearLayout>
+</FrameLayout>

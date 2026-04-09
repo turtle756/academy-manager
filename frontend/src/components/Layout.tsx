@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import {
   LayoutDashboard, UserCheck, Users, Calendar, CreditCard,
-  GraduationCap, MessageSquare, Bell, FileText, BarChart3,
+  GraduationCap, MessageSquare, FileText, BarChart3,
   Settings, LogOut, Menu
 } from 'lucide-react';
 import { useState } from 'react';
@@ -16,9 +16,9 @@ const ownerNav = [
   { to: '/payments', icon: CreditCard, label: '수납 관리' },
   { to: '/grades', icon: BarChart3, label: '성적 관리' },
   { to: '/counseling', icon: MessageSquare, label: '상담일지' },
-  { to: '/notices', icon: Bell, label: '공지/소통' },
   { to: '/documents', icon: FileText, label: '서류 생성' },
   { to: '/stats', icon: BarChart3, label: '통계' },
+  { to: '/kiosk', icon: UserCheck, label: '키오스크' },
   { to: '/settings', icon: Settings, label: '설정' },
 ];
 

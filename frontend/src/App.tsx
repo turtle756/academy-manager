@@ -12,7 +12,6 @@ import Attendance from './pages/Attendance';
 import Payments from './pages/Payments';
 import Grades from './pages/Grades';
 import Counseling from './pages/Counseling';
-import Notices from './pages/Notices';
 import Documents from './pages/Documents';
 import Stats from './pages/Stats';
 import Settings from './pages/Settings';
@@ -38,7 +37,6 @@ function App() {
           <Route path="/login/callback" element={<LoginCallback />} />
           <Route path="/select-academy" element={<SelectAcademy />} />
           <Route path="/setup" element={<Setup />} />
-          <Route path="/kiosk" element={<Kiosk />} />
           <Route path="/parent" element={<ParentView />} />
 
           {/* Protected routes */}
@@ -51,9 +49,9 @@ function App() {
             <Route path="/payments" element={<Payments />} />
             <Route path="/grades" element={<Grades />} />
             <Route path="/counseling" element={<Counseling />} />
-            <Route path="/notices" element={<Notices />} />
             <Route path="/documents" element={<Documents />} />
             <Route path="/stats" element={<Stats />} />
+            <Route path="/kiosk" element={<Kiosk />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>
