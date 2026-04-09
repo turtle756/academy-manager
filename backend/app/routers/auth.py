@@ -27,24 +27,29 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 @router.get("/google/login")
 async def google_login(invite: str | None = None):
-    """invite 파라미터가 있으면 state에 포함시켜서 콜백에서 처리"""
+    """invite 파라미터가 있으면 redirect_uri에 포함"""
+    redirect_uri = settings.GOOGLE_REDIRECT_URI
+    if invite:
+        redirect_uri += f"?invite={invite}"
     client = AsyncOAuth2Client(
         client_id=settings.GOOGLE_CLIENT_ID,
         client_secret=settings.GOOGLE_CLIENT_SECRET,
-        redirect_uri=settings.GOOGLE_REDIRECT_URI,
+        redirect_uri=redirect_uri,
         scope="openid email profile",
     )
-    state = invite or ""
-    uri, _ = client.create_authorization_url(GOOGLE_AUTH_URL, state=state)
+    uri, _ = client.create_authorization_url(GOOGLE_AUTH_URL)
     return {"url": uri}
 
 
 @router.get("/google/callback")
-async def google_callback(code: str, state: str = "", db: AsyncSession = Depends(get_db)):
+async def google_callback(code: str, invite: str | None = None, db: AsyncSession = Depends(get_db)):
+    redirect_uri = settings.GOOGLE_REDIRECT_URI
+    if invite:
+        redirect_uri += f"?invite={invite}"
     client = AsyncOAuth2Client(
         client_id=settings.GOOGLE_CLIENT_ID,
         client_secret=settings.GOOGLE_CLIENT_SECRET,
-        redirect_uri=settings.GOOGLE_REDIRECT_URI,
+        redirect_uri=redirect_uri,
     )
     token = await client.fetch_token(GOOGLE_TOKEN_URL, code=code)
     resp = await client.get(GOOGLE_USERINFO_URL)
@@ -63,8 +68,8 @@ async def google_callback(code: str, state: str = "", db: AsyncSession = Depends
         db.add(user)
         await db.flush()
 
-    # Process invitations — by email or by invite code (state)
-    invite_code = state if state and len(state) > 5 else None
+    # Process invitations — by email or by invite code
+    invite_code = invite if invite and len(invite) > 5 else None
 
     # Check email-based invitations
     inv_result = await db.execute(
