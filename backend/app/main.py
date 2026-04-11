@@ -13,8 +13,11 @@ from app.routers import auth, academies, classrooms, students, schedules, attend
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from sqlalchemy import text
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Schema migrations (idempotent)
+        await conn.execute(text("ALTER TABLE classrooms ADD COLUMN IF NOT EXISTS monthly_fee INTEGER NOT NULL DEFAULT 0"))
     yield
 
 
