@@ -37,7 +37,6 @@ const COLORS = [
   { bg: 'bg-teal-100', border: 'border-teal-400', text: 'text-teal-900' },
   { bg: 'bg-indigo-100', border: 'border-indigo-400', text: 'text-indigo-900' },
 ];
-function getColor(idx: number) { return COLORS[idx % COLORS.length]; }
 function timeToMin(t: string) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
 function minToY(min: number) { return ((min - START_HOUR * 60) / 60) * HOUR_HEIGHT; }
 
@@ -124,14 +123,6 @@ export default function Schedules() {
 
   // 강의실 없는 수업 (room_id=null)은 별도 처리
   const unassignedRoomSchedules = filtered.filter(s => !s.room_id);
-  const assignedRoomIds = [...new Set(filtered.filter(s => s.room_id).map(s => s.room_id as number))];
-
-  // 현재 탭에서 표시할 강의실 목록
-  const displayRooms = activeTab === 'all'
-    ? rooms
-    : activeTab === 'mine'
-    ? []
-    : rooms.filter(r => r.id === activeTab);
 
   return (
     <div>
