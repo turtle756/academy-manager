@@ -156,16 +156,21 @@ async def delete_academy(
     from app.models.counseling import Counseling
     from app.models.schedule import Schedule
 
-    for model in [Payment, Invoice, Attendance, Counseling]:
+    from app.models.grade import Grade
+    from app.models.invitation import Invitation
+
+    # 순서 중요: FK 참조하는 테이블부터 삭제
+    for model in [Payment, Invoice, Attendance, Counseling, Grade]:
         await db.execute(delete(model).where(model.academy_id == academy_id))
     await db.execute(delete(StudentClassroom).where(
-        StudentClassroom.classroom_id.in_(
-            select(Classroom.id).where(Classroom.academy_id == academy_id)
+        StudentClassroom.student_id.in_(
+            select(Student.id).where(Student.academy_id == academy_id)
         )
     ))
     await db.execute(delete(Schedule).where(Schedule.academy_id == academy_id))
     await db.execute(delete(Classroom).where(Classroom.academy_id == academy_id))
     await db.execute(delete(Student).where(Student.academy_id == academy_id))
+    await db.execute(delete(Invitation).where(Invitation.academy_id == academy_id))
     await db.execute(delete(UserAcademy).where(UserAcademy.academy_id == academy_id))
     academy = await db.get(Academy, academy_id)
     if academy:
