@@ -18,6 +18,11 @@ interface ChatMessage {
   hint?: string;
 }
 
+interface PendingAction {
+  type: 'ask_student_info';
+  student_name: string;
+}
+
 interface AtRisk {
   student_id: number;
   student_name: string;
@@ -48,6 +53,7 @@ export default function Dashboard() {
   const [nlpText, setNlpText] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [nlpLoading, setNlpLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -63,21 +69,58 @@ export default function Dashboard() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // 학생 등록 멀티턴: "고2, 010-1234-5678" 파싱
+  const parseStudentInfo = (text: string) => {
+    const gradeMatch = text.match(/[초중고][1-6]|[1-9]학년/);
+    const phoneMatch = text.match(/0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}/);
+    return {
+      grade: gradeMatch?.[0] ?? null,
+      phone: phoneMatch?.[0].replace(/[-\s]/g, '-') ?? null,
+    };
+  };
+
   const nlpSubmit = async (text: string) => {
     const t = text.trim();
     if (!t) return;
     setNlpText('');
     setMessages(prev => [...prev, { role: 'user', text: t }]);
     setNlpLoading(true);
+
+    // 멀티턴: 학생 등록 정보 입력 대기 중
+    if (pendingAction?.type === 'ask_student_info') {
+      const { grade, phone } = parseStudentInfo(t);
+      const name = pendingAction.student_name;
+      try {
+        await api.post('/students', { name, grade: grade ?? undefined, phone: phone ?? undefined });
+        setPendingAction(null);
+        setMessages(prev => [...prev, {
+          role: 'bot',
+          text: `'${name}' 학생을 등록했습니다.${grade ? ` (${grade})` : ''}${phone ? ` 연락처: ${phone}` : ''}\n원생 관리에서 추가 정보를 입력할 수 있습니다.`,
+          ok: true,
+        }]);
+        api.get('/stats/dashboard').then(r => setStats(r.data)).catch(() => {});
+      } catch {
+        setMessages(prev => [...prev, { role: 'bot', text: '등록 중 오류가 발생했습니다.', ok: false }]);
+      } finally {
+        setNlpLoading(false);
+        inputRef.current?.focus();
+      }
+      return;
+    }
+
     try {
       const res = await api.post('/nlp', { text: t });
       const d = res.data;
       setMessages(prev => [...prev, {
         role: 'bot',
         text: d.message + (d.hint ? `\n${d.hint}` : ''),
-        ok: d.ok,
+        ok: d.ok === true,
       }]);
-      if (d.ok && d.intent && ['attendance_set', 'payment_set', 'student_create'].includes(d.intent)) {
+      // 학생 정보 추가 요청 대기
+      if (d.action === 'ask_student_info') {
+        setPendingAction({ type: 'ask_student_info', student_name: d.student_name });
+      }
+      if (d.ok === true && d.intent && ['attendance_set', 'payment_set'].includes(d.intent)) {
         api.get('/stats/dashboard').then(r => setStats(r.data)).catch(() => {});
       }
     } catch {
@@ -150,7 +193,9 @@ export default function Dashboard() {
             value={nlpText}
             onChange={e => setNlpText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !nlpLoading && nlpSubmit(nlpText)}
-            placeholder="예) 오늘 김민수 결석, 이번달 미납자, 김기현 추가해줘"
+            placeholder={pendingAction?.type === 'ask_student_info'
+              ? '예) 고2, 010-1234-5678  (학년·연락처를 입력하세요)'
+              : '예) 오늘 김민수 결석, 이번달 미납자, 김기현 추가해줘'}
             className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
             disabled={nlpLoading}
           />

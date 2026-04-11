@@ -251,14 +251,12 @@ async def execute_student_create(params: dict, academy_id: int, db: AsyncSession
     if existing.scalar_one_or_none():
         return {"ok": False, "message": f"'{student_name}' 학생이 이미 등록되어 있습니다."}
 
-    student = Student(name=student_name, academy_id=academy_id)
-    db.add(student)
-    await db.commit()
+    # 바로 등록하지 않고 추가 정보 요청
     return {
-        "ok": True,
-        "message": f"'{student_name}' 학생을 등록했습니다. 원생 관리에서 학년·연락처를 추가로 입력해주세요.",
-        "action": "navigate",
-        "target": "/students",
+        "ok": "pending",
+        "message": f"'{student_name}' 학생을 등록할게요.\n학년과 연락처를 알려주세요.\n예) 고2, 010-1234-5678",
+        "action": "ask_student_info",
+        "student_name": student_name,
     }
 
 
