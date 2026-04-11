@@ -1,6 +1,4 @@
 import urllib.parse
-import random
-import string
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -154,7 +152,6 @@ async def quick_setup(user: User = Depends(get_current_user), db: AsyncSession =
         s = Student(
             name=name, phone=phone, parent_phone=f"010-2222-{phone[-4:]}",
             parent_name=f"{name} 학부모", school="테스트학교", grade=grade,
-            pin_code="".join(random.choices(string.digits, k=4)),
             qr_token=secrets.token_urlsafe(16),
             academy_id=academy.id,
         )

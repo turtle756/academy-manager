@@ -20,11 +20,6 @@ class NFCCheckIn(BaseModel):
     nfc_uid: str
 
 
-class PINCheckIn(BaseModel):
-    pin_code: str
-    classroom_id: int | None = None
-
-
 class ManualSet(BaseModel):
     student_id: int
     date: str
@@ -77,16 +72,6 @@ async def nfc_check_in(data: NFCCheckIn, db: AsyncSession = Depends(get_db)):
     if not student:
         raise HTTPException(status_code=400, detail="등록되지 않은 NFC 카드입니다")
     return await _kiosk_check_in(student, AttendanceMethod.KIOSK, db)
-
-
-@router.post("/check-in/pin")
-async def pin_check_in(data: PINCheckIn, db: AsyncSession = Depends(get_db)):
-    """PIN으로 출석 (키오스크 전용)"""
-    result = await db.execute(select(Student).where(Student.pin_code == data.pin_code))
-    student = result.scalar_one_or_none()
-    if not student:
-        raise HTTPException(status_code=400, detail="유효하지 않은 PIN입니다")
-    return await _kiosk_check_in(student, AttendanceMethod.PIN, db)
 
 
 # ============ 관리자 수동 처리 ============

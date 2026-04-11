@@ -1,6 +1,4 @@
-import random
 import secrets
-import string
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -13,10 +11,6 @@ from app.models.user_academy import UserAcademy
 from app.models.student import Student
 
 router = APIRouter()
-
-
-def generate_pin() -> str:
-    return "".join(random.choices(string.digits, k=4))
 
 
 class StudentCreate(BaseModel):
@@ -56,7 +50,6 @@ async def create_student(
 ):
     student = Student(
         **data.model_dump(),
-        pin_code=generate_pin(),
         academy_id=membership.academy_id,
     )
     db.add(student)
