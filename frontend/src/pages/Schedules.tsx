@@ -140,7 +140,7 @@ export default function Schedules() {
                 <div
                   key={h}
                   className="absolute left-0 right-0 text-xs text-gray-400 font-mono pr-2 text-right"
-                  style={{ top: i * HOUR_HEIGHT - 6 }}
+                  style={{ top: i * HOUR_HEIGHT + 4 }}
                 >
                   {h}:00
                 </div>

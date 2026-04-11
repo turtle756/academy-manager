@@ -10,6 +10,7 @@ from app.models.user_academy import UserAcademy
 from app.models.attendance import Attendance, AttendanceStatus
 from app.models.payment import Invoice, InvoiceStatus
 from app.models.student import Student
+from app.models.counseling import Counseling
 
 router = APIRouter()
 
@@ -31,10 +32,26 @@ async def dashboard_stats(
 
     unpaid = (await db.execute(select(func.count(), func.coalesce(func.sum(Invoice.amount), 0)).select_from(Invoice).where(Invoice.academy_id == aid, Invoice.status.in_([InvoiceStatus.PENDING, InvoiceStatus.OVERDUE])))).one()
 
+    today_absent = today_total - today_present
+
+    # Today's counseling count
+    today_counseling = (await db.execute(
+        select(func.count()).select_from(Counseling).where(
+            Counseling.academy_id == aid, Counseling.date == today
+        )
+    )).scalar() or 0
+
+    # Total students
+    total_students = (await db.execute(
+        select(func.count()).select_from(Student).where(Student.academy_id == aid, Student.is_active == True)
+    )).scalar() or 0
+
     return {
-        "today_attendance": {"present": today_present, "total": today_total, "rate": round(today_present / today_total * 100, 1) if today_total else 0},
+        "today_attendance": {"present": today_present, "absent": today_absent, "total": today_total, "rate": round(today_present / today_total * 100, 1) if today_total else 0},
         "month_attendance_rate": round(m_present / m_total * 100, 1) if m_total else 0,
-        "unpaid": {"count": unpaid[0], "amount": unpaid[1]},
+        "unpaid": {"count": unpaid[0], "amount": int(unpaid[1])},
+        "today_counseling": today_counseling,
+        "total_students": total_students,
     }
 
 

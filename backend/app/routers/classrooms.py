@@ -14,10 +14,12 @@ router = APIRouter()
 
 class ClassroomCreate(BaseModel):
     name: str
+    monthly_fee: int = 0
 
 
 class ClassroomUpdate(BaseModel):
     name: str | None = None
+    monthly_fee: int | None = None
 
 
 class StudentAssign(BaseModel):
@@ -43,7 +45,7 @@ async def create_classroom(
     membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
-    classroom = Classroom(name=data.name, academy_id=membership.academy_id)
+    classroom = Classroom(name=data.name, monthly_fee=data.monthly_fee, academy_id=membership.academy_id)
     db.add(classroom)
     await db.commit()
     await db.refresh(classroom)
