@@ -1,6 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import NLPBar from './NLPBar';
 import {
   LayoutDashboard, UserCheck, Users, Calendar, CreditCard,
   GraduationCap, MessageSquare, FileText, BarChart3,
@@ -111,7 +110,6 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
-      <NLPBar />
     </div>
   );
 }

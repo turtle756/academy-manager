@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { UserX, CreditCard, MessageSquare, Users, ChevronRight, AlertTriangle } from 'lucide-react';
+import { UserX, CreditCard, MessageSquare, Users, ChevronRight, AlertTriangle, Send, BookOpen } from 'lucide-react';
 import api from '../lib/api';
 
 interface DashboardData {
@@ -9,6 +9,13 @@ interface DashboardData {
   unpaid: { count: number; amount: number };
   today_counseling: number;
   total_students: number;
+}
+
+interface NLPResult {
+  ok: boolean;
+  message: string;
+  hint?: string;
+  chips?: string[];
 }
 
 interface AtRisk {
@@ -31,10 +38,19 @@ const todayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().ge
 const todayLabel = ['일', '월', '화', '수', '목', '금', '토'][new Date().getDay()];
 const todayStr = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 
+const QUICK_CHIPS = ['오늘 출석 현황', '이번달 미납자', '예정된 상담', '재원생 몇 명?'];
+
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardData | null>(null);
   const [atRisk, setAtRisk] = useState<AtRisk[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+
+  const [nlpText, setNlpText] = useState('');
+  const [nlpResult, setNlpResult] = useState<NLPResult | null>(null);
+  const [nlpLoading, setNlpLoading] = useState(false);
+  const [showHints, setShowHints] = useState(false);
+  const [hints, setHints] = useState<any[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.get('/stats/dashboard').then(r => setStats(r.data)).catch(() => {});
@@ -44,11 +60,105 @@ export default function Dashboard() {
     }).catch(() => {});
   }, []);
 
+  const nlpSubmit = async (text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    setNlpText(t);
+    setNlpLoading(true);
+    setNlpResult(null);
+    try {
+      const res = await api.post('/nlp', { text: t });
+      setNlpResult(res.data);
+      // 출결/납부 처리 후 대시보드 새로고침
+      if (res.data.ok && res.data.intent && ['attendance_set','payment_set'].includes(res.data.intent)) {
+        api.get('/stats/dashboard').then(r => setStats(r.data)).catch(() => {});
+      }
+    } catch {
+      setNlpResult({ ok: false, message: '오류가 발생했습니다.' });
+    } finally {
+      setNlpLoading(false);
+    }
+  };
+
+  const loadHints = async () => {
+    if (hints.length > 0) { setShowHints(v => !v); return; }
+    try {
+      const res = await api.get('/nlp/hints');
+      setHints(res.data.categories);
+      setShowHints(true);
+    } catch {}
+  };
+
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-5">
         <h2 className="text-2xl font-bold text-gray-900">대시보드</h2>
         <p className="text-sm text-gray-500 mt-1">{todayStr} ({todayLabel}요일)</p>
+      </div>
+
+      {/* NLP 입력창 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="flex gap-2 mb-3">
+          <input
+            ref={inputRef}
+            value={nlpText}
+            onChange={e => setNlpText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && nlpSubmit(nlpText)}
+            placeholder="무엇이든 물어보거나 처리하세요  예) 오늘 김민수 결석, 이번달 미납자"
+            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={nlpLoading}
+          />
+          <button
+            onClick={() => nlpSubmit(nlpText)}
+            disabled={nlpLoading || !nlpText.trim()}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg transition-colors flex items-center gap-1.5 text-sm font-medium"
+          >
+            <Send size={14} />
+            {nlpLoading ? '처리 중...' : '실행'}
+          </button>
+        </div>
+
+        {/* 결과 */}
+        {nlpResult && (
+          <div className={`px-3 py-2 rounded-lg text-sm mb-2 ${nlpResult.ok ? 'bg-green-50 text-green-800' : 'bg-orange-50 text-orange-800'}`}>
+            {nlpResult.message}
+            {nlpResult.hint && <span className="ml-2 opacity-60 text-xs">{nlpResult.hint}</span>}
+          </div>
+        )}
+
+        {/* 빠른 칩 */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {QUICK_CHIPS.map(chip => (
+            <button key={chip} onClick={() => nlpSubmit(chip)}
+              className="px-2.5 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-600 rounded-full text-xs transition-colors">
+              {chip}
+            </button>
+          ))}
+          <button onClick={loadHints}
+            className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
+            <BookOpen size={12} />
+            {showHints ? '가이드 닫기' : '사용 예시'}
+          </button>
+        </div>
+
+        {/* 가이드 */}
+        {showHints && hints.length > 0 && (
+          <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-3">
+            {hints.map(cat => (
+              <div key={cat.name}>
+                <p className="text-xs font-semibold text-gray-500 mb-1">{cat.name}</p>
+                <div className="flex flex-wrap gap-1">
+                  {cat.examples.map((ex: string) => (
+                    <button key={ex} onClick={() => { nlpSubmit(ex); setShowHints(false); }}
+                      className="px-2 py-0.5 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-600 rounded text-xs">
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Action cards */}
