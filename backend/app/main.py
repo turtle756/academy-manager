@@ -19,6 +19,14 @@ async def lifespan(app: FastAPI):
         # Schema migrations (idempotent)
         await conn.execute(text("ALTER TABLE classrooms ADD COLUMN IF NOT EXISTS monthly_fee INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text("ALTER TYPE memberrole ADD VALUE IF NOT EXISTS 'vice_owner'"))
+        await conn.execute(text("ALTER TABLE counselings ADD COLUMN IF NOT EXISTS counseling_type VARCHAR(30) NOT NULL DEFAULT 'regular'"))
+        await conn.execute(text("ALTER TABLE counselings ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'completed'"))
+        await conn.execute(text("ALTER TABLE counselings ADD COLUMN IF NOT EXISTS issue TEXT"))
+        await conn.execute(text("ALTER TABLE counselings ADD COLUMN IF NOT EXISTS agreement TEXT"))
+        await conn.execute(text("ALTER TABLE counselings ADD COLUMN IF NOT EXISTS followup TEXT"))
+        await conn.execute(text("ALTER TABLE counselings ADD COLUMN IF NOT EXISTS result VARCHAR(50)"))
+        await conn.execute(text("ALTER TABLE counselings ADD COLUMN IF NOT EXISTS next_date DATE"))
+        await conn.execute(text("ALTER TABLE counselings ALTER COLUMN title DROP NOT NULL"))
     yield
 
 
