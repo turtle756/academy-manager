@@ -4,20 +4,27 @@ import api from '../lib/api';
 
 interface CounselingRecord { id: number; student_id: number; student_name: string; teacher_name: string; date: string; title: string; content: string }
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 export default function Counseling() {
   const [records, setRecords] = useState<CounselingRecord[]>([]);
   const [students, setStudents] = useState<{ id: number; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ student_id: '', date: '', title: '', content: '' });
+  const [form, setForm] = useState({ student_id: '', date: today(), title: '', content: '' });
 
   const load = () => api.get('/counseling').then(r => setRecords(r.data));
   useEffect(() => { load(); api.get('/students').then(r => setStudents(r.data)); }, []);
+
+  const openForm = () => {
+    setForm({ student_id: '', date: today(), title: '', content: '' });
+    setShowForm(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await api.post('/counseling', { ...form, student_id: Number(form.student_id) });
     setShowForm(false);
-    setForm({ student_id: '', date: '', title: '', content: '' });
+    setForm({ student_id: '', date: today(), title: '', content: '' });
     load();
   };
 
@@ -31,7 +38,7 @@ export default function Counseling() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">상담일지</h2>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+        <button onClick={openForm} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
           <Plus size={16} /> 상담 기록
         </button>
       </div>

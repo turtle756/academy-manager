@@ -65,9 +65,14 @@ export default function Attendance() {
     ? (classrooms.find(c => c.id === selectedClassroom)?.students || []).map(sc => sc.student)
     : allStudents;
 
-  // 학생별 출석 상태 매핑
+  // 학생별 출석 상태 매핑 (같은 날 중복이면 최신 것 우선)
   const statusByStudent = new Map<number, AttendanceRecord>();
-  records.forEach(r => statusByStudent.set(r.student_id, r));
+  records.forEach(r => {
+    const existing = statusByStudent.get(r.student_id);
+    if (!existing || (r.checked_at && existing.checked_at && r.checked_at > existing.checked_at)) {
+      statusByStudent.set(r.student_id, r);
+    }
+  });
 
   // 출결 상태 설정 (수동)
   const setStatus = async (studentId: number, status: string) => {
@@ -93,17 +98,18 @@ export default function Attendance() {
     }
   };
 
-  // 요약 통계
+  // 요약 통계 (현재 보이는 학생들 기준)
+  const visibleRecords = students
+    .map(s => statusByStudent.get(s.id))
+    .filter((r): r is AttendanceRecord => !!r);
   const summary = {
-    present: records.filter(r => r.status === 'present').length,
-    late: records.filter(r => r.status === 'late').length,
-    absent: records.filter(r => r.status === 'absent').length,
-    early_leave: records.filter(r => r.status === 'early_leave').length,
+    present: visibleRecords.filter(r => r.status === 'present').length,
+    late: visibleRecords.filter(r => r.status === 'late').length,
+    absent: visibleRecords.filter(r => r.status === 'absent').length,
+    early_leave: visibleRecords.filter(r => r.status === 'early_leave').length,
   };
   const totalStudents = students.length;
-  const uncheckedCount = totalStudents - records.filter(r =>
-    students.some(s => s.id === r.student_id)
-  ).length;
+  const uncheckedCount = totalStudents - visibleRecords.length;
 
   return (
     <div>

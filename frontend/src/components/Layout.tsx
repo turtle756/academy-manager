@@ -22,9 +22,11 @@ const ownerNav = [
 ];
 
 const teacherNav = [
-  { to: '/', icon: LayoutDashboard, label: '내 수업' },
-  { to: '/attendance', icon: UserCheck, label: '출석 시작' },
-  { to: '/grades', icon: BarChart3, label: '성적 입력' },
+  { to: '/', icon: LayoutDashboard, label: '대시보드' },
+  { to: '/attendance', icon: UserCheck, label: '출결 관리' },
+  { to: '/students', icon: Users, label: '원생 조회' },
+  { to: '/schedules', icon: Calendar, label: '시간표' },
+  { to: '/grades', icon: BarChart3, label: '성적 관리' },
   { to: '/counseling', icon: MessageSquare, label: '상담일지' },
 ];
 
