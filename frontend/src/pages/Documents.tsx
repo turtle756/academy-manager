@@ -2,65 +2,130 @@ import { useEffect, useState } from 'react';
 import { FileText, Download } from 'lucide-react';
 import api from '../lib/api';
 
-interface Classroom { id: number; name: string }
+interface Student { id: number; name: string; school: string; grade: string }
+
+function getMonthStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 export default function Documents() {
-  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
-  const [selectedClassroom, setSelectedClassroom] = useState('');
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [students, setStudents] = useState<Student[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState('');
+  const [month, setMonth] = useState(getMonthStr(new Date()));
+  const [loading, setLoading] = useState<string | null>(null);
 
-  useEffect(() => { api.get('/classrooms').then(r => setClassrooms(r.data)); }, []);
+  useEffect(() => { api.get('/students').then(r => setStudents(r.data)); }, []);
 
-  const downloadAttendanceSheet = async () => {
-    if (!selectedClassroom) return alert('반을 선택해주세요');
-    const res = await api.get(`/documents/attendance-sheet?classroom_id=${selectedClassroom}&month=${month}`, { responseType: 'blob' });
-    const url = URL.createObjectURL(res.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `출석부_${month}.xlsx`;
-    a.click();
+  const download = async (url: string, filename: string, docType: string) => {
+    setLoading(docType);
+    try {
+      const res = await api.get(url, { responseType: 'blob' });
+      const href = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(href);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || '생성 실패');
+    } finally {
+      setLoading(null);
+    }
   };
 
-  const downloadRoster = async () => {
-    const res = await api.get('/documents/student-roster', { responseType: 'blob' });
-    const url = URL.createObjectURL(res.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '수강생대장.xlsx';
-    a.click();
+  const downloadEnrollmentCert = () => {
+    if (!selectedStudent) return alert('학생을 선택해주세요');
+    const s = students.find(s => s.id === Number(selectedStudent));
+    download(
+      `/documents/enrollment-cert?student_id=${selectedStudent}`,
+      `재원증명서_${s?.name || ''}.xlsx`,
+      'enrollment',
+    );
+  };
+
+  const downloadPaymentCert = () => {
+    if (!selectedStudent) return alert('학생을 선택해주세요');
+    const s = students.find(s => s.id === Number(selectedStudent));
+    download(
+      `/documents/payment-cert?student_id=${selectedStudent}&month=${month}`,
+      `납부확인서_${s?.name || ''}_${month}.xlsx`,
+      'payment',
+    );
   };
 
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">서류 생성</h2>
 
+      {/* 학생 선택 공통 */}
+      <div className="bg-white rounded-xl border p-4 mb-4 flex items-center gap-3 flex-wrap">
+        <label className="text-sm font-medium text-gray-700">학생 선택</label>
+        <select
+          value={selectedStudent}
+          onChange={e => setSelectedStudent(e.target.value)}
+          className="flex-1 min-w-48 px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+        >
+          <option value="">-- 학생을 선택하세요 --</option>
+          {students.map(s => (
+            <option key={s.id} value={s.id}>
+              {s.name}{s.school ? ` (${s.school} ${s.grade})` : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* 재원증명서 */}
         <div className="bg-white rounded-xl border p-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-blue-50 rounded-lg"><FileText size={20} className="text-blue-600" /></div>
-            <h3 className="text-lg font-semibold">출석부</h3>
+            <div>
+              <h3 className="text-lg font-semibold">재원증명서</h3>
+              <p className="text-xs text-gray-400">Enrollment Certificate</p>
+            </div>
           </div>
-          <p className="text-sm text-gray-500 mb-4">교육청 제출용 월별 출석부를 Excel로 생성합니다.</p>
-          <div className="space-y-3 mb-4">
-            <select value={selectedClassroom} onChange={e => setSelectedClassroom(e.target.value)} className="w-full px-3 py-2 border rounded-lg outline-none">
-              <option value="">반 선택</option>
-              {classrooms.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <input type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-full px-3 py-2 border rounded-lg outline-none" />
-          </div>
-          <button onClick={downloadAttendanceSheet} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm w-full justify-center">
-            <Download size={16} /> 출석부 다운로드
+          <p className="text-sm text-gray-500 mb-6">
+            학생이 현재 학원에 재원 중임을 증명하는 서류입니다.
+            학원명, 학생 정보, 수강반, 등록일이 포함됩니다.
+          </p>
+          <button
+            onClick={downloadEnrollmentCert}
+            disabled={loading === 'enrollment'}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm w-full justify-center disabled:opacity-50"
+          >
+            <Download size={16} />
+            {loading === 'enrollment' ? '생성 중...' : '재원증명서 다운로드'}
           </button>
         </div>
 
+        {/* 납부확인서 */}
         <div className="bg-white rounded-xl border p-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-green-50 rounded-lg"><FileText size={20} className="text-green-600" /></div>
-            <h3 className="text-lg font-semibold">수강생 대장</h3>
+            <div>
+              <h3 className="text-lg font-semibold">납부확인서</h3>
+              <p className="text-xs text-gray-400">Payment Receipt</p>
+            </div>
           </div>
-          <p className="text-sm text-gray-500 mb-4">전체 수강생 명단을 Excel로 생성합니다.</p>
-          <button onClick={downloadRoster} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm w-full justify-center mt-[88px]">
-            <Download size={16} /> 수강생 대장 다운로드
+          <p className="text-sm text-gray-500 mb-3">
+            해당 월의 수강료 납부 내역을 확인하는 서류입니다.
+          </p>
+          <div className="mb-4">
+            <label className="text-xs text-gray-500 mb-1 block">납부 월</label>
+            <input
+              type="month"
+              value={month}
+              onChange={e => setMonth(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+          <button
+            onClick={downloadPaymentCert}
+            disabled={loading === 'payment'}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm w-full justify-center disabled:opacity-50"
+          >
+            <Download size={16} />
+            {loading === 'payment' ? '생성 중...' : '납부확인서 다운로드'}
           </button>
         </div>
       </div>
