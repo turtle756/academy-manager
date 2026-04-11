@@ -17,6 +17,7 @@ import Stats from './pages/Stats';
 import Settings from './pages/Settings';
 import ParentView from './pages/ParentView';
 import LoginCallback from './pages/LoginCallback';
+import JoinAcademy from './pages/JoinAcademy';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, academyId } = useAuth();
@@ -37,6 +38,7 @@ function App() {
           <Route path="/select-academy" element={<SelectAcademy />} />
           <Route path="/setup" element={<Setup />} />
           <Route path="/parent" element={<ParentView />} />
+          <Route path="/join/:code" element={<JoinAcademy />} />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>

@@ -3,7 +3,7 @@ import { Trash2, UserPlus, Copy, Download, Check, AlertTriangle } from 'lucide-r
 import api from '../lib/api';
 import { useAuth } from '../lib/auth';
 
-interface Invite { id: number; email: string; role: string; used: boolean; created_at: string }
+interface Invite { id: number; email: string | null; role: string; used: boolean; created_at: string; invite_code: string }
 interface Member { user_id: number; name: string; email: string; role: string }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -77,10 +77,16 @@ export default function SettingsPage() {
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/invitations', inviteForm);
+      const res = await api.post('/invitations', { email: inviteForm.email || null, role: inviteForm.role });
       setInviteForm({ email: '', role: 'teacher' });
       setShowInvite(false);
       loadInvites();
+      // 링크 생성이면 바로 클립보드에 복사
+      if (!inviteForm.email && res.data.invite_code) {
+        const link = `${window.location.origin}/join/${res.data.invite_code}`;
+        navigator.clipboard.writeText(link);
+        alert(`초대 링크가 클립보드에 복사되었습니다.\n\n${link}`);
+      }
     } catch (err: any) {
       alert(err.response?.data?.detail || '초대 실패');
     }
@@ -167,10 +173,10 @@ export default function SettingsPage() {
           {showInvite && (
             <form onSubmit={handleInvite} className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
               <input
-                required type="email"
+                type="email"
                 value={inviteForm.email}
                 onChange={e => setInviteForm({...inviteForm, email: e.target.value})}
-                placeholder="Google 이메일 주소"
+                placeholder="Google 이메일 (비워두면 링크로 초대)"
                 className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
               />
               <select
@@ -182,8 +188,13 @@ export default function SettingsPage() {
                 <option value="vice_owner">부원장 (수납·학생·출석 관리 가능)</option>
                 <option value="owner">원장 (모든 권한)</option>
               </select>
+              <p className="text-xs text-gray-400">
+                이메일을 비워두면 초대 링크가 생성됩니다. 링크를 받은 사람이 Google 로그인 시 자동으로 이 학원에 배정됩니다.
+              </p>
               <div className="flex gap-2">
-                <button type="submit" className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm">초대</button>
+                <button type="submit" className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm">
+                  {inviteForm.email ? '이메일로 초대' : '링크 생성 + 복사'}
+                </button>
                 <button type="button" onClick={() => setShowInvite(false)} className="px-4 py-2 border rounded-lg text-sm">취소</button>
               </div>
             </form>
@@ -227,17 +238,31 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 {invites.map(inv => (
                   <div key={inv.id} className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <span className="text-sm font-medium">{inv.email}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium">{inv.email || '링크 초대'}</span>
                       <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${ROLE_COLOR[inv.role] || 'bg-gray-100 text-gray-600'}`}>
                         {ROLE_LABEL[inv.role] || inv.role}
                       </span>
                       {inv.used && <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">가입 완료</span>}
                     </div>
                     {!inv.used && (
-                      <button onClick={() => handleDeleteInvite(inv.id)} className="p-1.5 hover:bg-red-50 rounded">
-                        <Trash2 size={14} className="text-red-500" />
-                      </button>
+                      <div className="flex items-center gap-1 ml-2">
+                        <button
+                          onClick={() => {
+                            const link = `${window.location.origin}/join/${inv.invite_code}`;
+                            navigator.clipboard.writeText(link);
+                            setCopiedField(`inv-${inv.id}`);
+                            setTimeout(() => setCopiedField(null), 2000);
+                          }}
+                          className="p-1.5 hover:bg-blue-50 rounded text-blue-500"
+                          title="링크 복사"
+                        >
+                          {copiedField === `inv-${inv.id}` ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+                        </button>
+                        <button onClick={() => handleDeleteInvite(inv.id)} className="p-1.5 hover:bg-red-50 rounded">
+                          <Trash2 size={14} className="text-red-500" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}

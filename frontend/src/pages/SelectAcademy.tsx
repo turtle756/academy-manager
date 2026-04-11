@@ -9,7 +9,7 @@ interface AcademyItem {
   joined_at: string;
 }
 
-const roleLabel: Record<string, string> = { owner: '원장', teacher: '강사' };
+const roleLabel: Record<string, string> = { owner: '원장', vice_owner: '부원장', teacher: '강사' };
 
 export default function SelectAcademy() {
   const [academies, setAcademies] = useState<AcademyItem[]>([]);
