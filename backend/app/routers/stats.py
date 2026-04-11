@@ -43,7 +43,7 @@ async def dashboard_stats(
 
     # Total students
     total_students = (await db.execute(
-        select(func.count()).select_from(Student).where(Student.academy_id == aid, Student.is_active == True)
+        select(func.count()).select_from(Student).where(Student.academy_id == aid)
     )).scalar() or 0
 
     return {
