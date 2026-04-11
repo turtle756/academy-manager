@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Check, Undo2, Zap, AlertCircle, Table2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Undo2, AlertCircle, Table2 } from 'lucide-react';
 import api from '../lib/api';
 
 interface Invoice {
@@ -48,8 +48,11 @@ export default function Payments() {
   const [filter, setFilter] = useState<'all' | 'unpaid' | 'paid'>('all');
 
 
-  const loadMonth = async () => {
+  const loadMonth = async (autoGen = false) => {
     try {
+      if (autoGen) {
+        await api.post('/payments/invoices/auto-generate', null, { params: { month } });
+      }
       const [s, inv] = await Promise.all([
         api.get(`/payments/summary`, { params: { month } }),
         api.get(`/payments/invoices`, { params: { month } }),
@@ -67,7 +70,7 @@ export default function Payments() {
   };
 
   useEffect(() => {
-    if (view === 'month') loadMonth();
+    if (view === 'month') loadMonth(true);
     else loadYearly();
   }, [month, year, view]);
 
@@ -75,17 +78,6 @@ export default function Payments() {
     const [y, m] = month.split('-').map(Number);
     const newDate = new Date(y, m - 1 + delta, 1);
     setMonth(getMonthStr(newDate));
-  };
-
-  const bulkGenerate = async () => {
-    if (!confirm(`${month} 청구서를 일괄 생성합니다.\n반별 월 수강료 기준으로 자동 생성됩니다. 계속하시겠습니까?`)) return;
-    try {
-      const res = await api.post('/payments/invoices/bulk-generate', { month, due_day: 10 });
-      alert(`생성: ${res.data.created}건\n스킵(이미 존재): ${res.data.skipped}건`);
-      loadMonth();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || '생성 실패');
-    }
   };
 
   const quickPay = async (inv: Invoice, method: string) => {
@@ -149,8 +141,8 @@ export default function Payments() {
               <button onClick={() => setMonth(getMonthStr(new Date()))} className="ml-2 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded">이달</button>
             </div>
             <div className="ml-auto flex gap-2">
-              <button onClick={bulkGenerate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-                <Zap size={14} /> {month.split('-')[1]}월 일괄 청구
+              <button onClick={() => loadMonth(true)} className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200">
+                청구서 갱신
               </button>
             </div>
           </div>
@@ -250,7 +242,7 @@ export default function Payments() {
             </table>
             {filteredInvoices.length === 0 && (
               <p className="text-center text-gray-400 py-12">
-                청구서가 없습니다. "일괄 청구" 버튼으로 생성하세요.
+                청구서가 없습니다. 원생 관리에서 월 수강료를 설정하면 자동으로 생성됩니다.
               </p>
             )}
           </div>

@@ -11,6 +11,8 @@ interface Student {
   school: string;
   grade: string;
   nfc_uid: string | null;
+  monthly_fee: number;
+  payment_due_day: number;
 }
 
 export default function Students() {
@@ -18,7 +20,7 @@ export default function Students() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
-  const [form, setForm] = useState({ name: '', phone: '', parent_phone: '', parent_name: '', school: '', grade: '' });
+  const [form, setForm] = useState({ name: '', phone: '', parent_phone: '', parent_name: '', school: '', grade: '', monthly_fee: 0, payment_due_day: 10 });
   const [nfcModal, setNfcModal] = useState<Student | null>(null);
   const [nfcStatus, setNfcStatus] = useState<'waiting' | 'success' | 'error' | 'unsupported'>('waiting');
   const [nfcMessage, setNfcMessage] = useState('');
@@ -37,14 +39,14 @@ export default function Students() {
     } else {
       await api.post('/students', form);
     }
-    setForm({ name: '', phone: '', parent_phone: '', parent_name: '', school: '', grade: '' });
+    setForm({ name: '', phone: '', parent_phone: '', parent_name: '', school: '', grade: '', monthly_fee: 0, payment_due_day: 10 });
     setShowForm(false);
     setEditing(null);
     load();
   };
 
   const handleEdit = (s: Student) => {
-    setForm({ name: s.name, phone: s.phone || '', parent_phone: s.parent_phone || '', parent_name: s.parent_name || '', school: s.school || '', grade: s.grade || '' });
+    setForm({ name: s.name, phone: s.phone || '', parent_phone: s.parent_phone || '', parent_name: s.parent_name || '', school: s.school || '', grade: s.grade || '', monthly_fee: s.monthly_fee || 0, payment_due_day: s.payment_due_day || 10 });
     setEditing(s);
     setShowForm(true);
   };
@@ -122,7 +124,7 @@ export default function Students() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">원생 관리</h2>
         <button
-          onClick={() => { setShowForm(true); setEditing(null); setForm({ name: '', phone: '', parent_phone: '', parent_name: '', school: '', grade: '' }); }}
+          onClick={() => { setShowForm(true); setEditing(null); setForm({ name: '', phone: '', parent_phone: '', parent_name: '', school: '', grade: '', monthly_fee: 0, payment_due_day: 10 }); }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
         >
           <Plus size={16} /> 원생 등록
@@ -150,6 +152,19 @@ export default function Students() {
               <div className="grid grid-cols-2 gap-3">
                 <input value={form.school} onChange={e => setForm({...form, school: e.target.value})} placeholder="학교" className="px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
                 <input value={form.grade} onChange={e => setForm({...form, grade: e.target.value})} placeholder="학년" className="px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="border-t pt-3">
+                <p className="text-xs text-gray-500 mb-2">수납 설정</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">월 수강료 (원)</label>
+                    <input type="number" min="0" value={form.monthly_fee} onChange={e => setForm({...form, monthly_fee: Number(e.target.value)})} placeholder="0" className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">납부 기한일 (매월 N일)</label>
+                    <input type="number" min="1" max="28" value={form.payment_due_day} onChange={e => setForm({...form, payment_due_day: Number(e.target.value)})} className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
               </div>
               <div className="flex gap-2 mt-4">
                 <button type="submit" className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{editing ? '수정' : '등록'}</button>
@@ -188,6 +203,7 @@ export default function Students() {
             <tr>
               <th className="text-left px-4 py-3 font-medium text-gray-600">이름</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">학교/학년</th>
+              <th className="text-right px-4 py-3 font-medium text-gray-600 hidden md:table-cell">월 수강료</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">NFC</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -197,6 +213,7 @@ export default function Students() {
               <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
                 <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{s.school} {s.grade}</td>
+                <td className="px-4 py-3 text-right font-mono text-gray-700 hidden md:table-cell">{s.monthly_fee ? s.monthly_fee.toLocaleString() + '원' : '-'}</td>
                 <td className="px-4 py-3">
                   {s.nfc_uid ? (
                     <div className="flex items-center gap-1">

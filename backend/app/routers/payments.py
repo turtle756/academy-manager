@@ -174,6 +174,57 @@ async def create_invoice(
     return invoice
 
 
+@router.post("/invoices/auto-generate")
+async def auto_generate_invoices(
+    month: str,  # query param: "2026-04"
+    membership: UserAcademy = Depends(get_membership),
+    db: AsyncSession = Depends(get_db),
+):
+    """월 청구서 자동 생성 — 학생별 monthly_fee 기준, 페이지 진입 시 자동 호출"""
+    year, m = month.split("-")
+    year_i, m_i = int(year), int(m)
+    _, num_days = monthrange(year_i, m_i)
+    start = date(year_i, m_i, 1)
+    end = date(year_i, m_i, num_days)
+
+    # monthly_fee > 0인 학생만
+    result = await db.execute(
+        select(Student).where(
+            Student.academy_id == membership.academy_id,
+            Student.monthly_fee > 0,
+        )
+    )
+    students = result.scalars().all()
+
+    created = 0
+    for s in students:
+        # 중복 체크
+        existing = await db.execute(
+            select(Invoice).where(
+                Invoice.student_id == s.id,
+                Invoice.academy_id == membership.academy_id,
+                Invoice.due_date >= start,
+                Invoice.due_date <= end,
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+
+        due_day = min(s.payment_due_day, num_days)
+        due_date_val = date(year_i, m_i, due_day)
+        db.add(Invoice(
+            student_id=s.id,
+            academy_id=membership.academy_id,
+            amount=s.monthly_fee,
+            description=f"{int(m)}월 수강료",
+            due_date=due_date_val,
+        ))
+        created += 1
+
+    await db.commit()
+    return {"created": created}
+
+
 @router.post("/invoices/bulk-generate")
 async def bulk_generate_invoices(
     data: BulkGenerate,

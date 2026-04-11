@@ -20,6 +20,8 @@ class StudentCreate(BaseModel):
     parent_name: str | None = None
     school: str | None = None
     grade: str | None = None
+    monthly_fee: int = 0
+    payment_due_day: int = 10
 
 
 class StudentUpdate(BaseModel):
@@ -29,6 +31,8 @@ class StudentUpdate(BaseModel):
     parent_name: str | None = None
     school: str | None = None
     grade: str | None = None
+    monthly_fee: int | None = None
+    payment_due_day: int | None = None
 
 
 @router.get("")
