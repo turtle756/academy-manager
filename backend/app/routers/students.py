@@ -97,9 +97,28 @@ async def delete_student(
     membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
+    from sqlalchemy import delete as sql_delete
+    from app.models.classroom import StudentClassroom
+    from app.models.attendance import Attendance
+    from app.models.payment import Invoice, Payment
+    from app.models.grade import Grade
+    from app.models.counseling import Counseling
+
     student = await db.get(Student, student_id)
     if not student or student.academy_id != membership.academy_id:
         raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다")
+
+    # FK 순서대로 삭제
+    inv_ids = (await db.execute(
+        select(Invoice.id).where(Invoice.student_id == student_id)
+    )).scalars().all()
+    if inv_ids:
+        await db.execute(sql_delete(Payment).where(Payment.invoice_id.in_(inv_ids)))
+    await db.execute(sql_delete(Invoice).where(Invoice.student_id == student_id))
+    await db.execute(sql_delete(Attendance).where(Attendance.student_id == student_id))
+    await db.execute(sql_delete(Grade).where(Grade.student_id == student_id))
+    await db.execute(sql_delete(Counseling).where(Counseling.student_id == student_id))
+    await db.execute(sql_delete(StudentClassroom).where(StudentClassroom.student_id == student_id))
     await db.delete(student)
     await db.commit()
     return {"ok": True}

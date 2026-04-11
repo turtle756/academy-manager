@@ -88,7 +88,30 @@ export default function Dashboard() {
 
     // 멀티턴: 학생 등록 정보 입력 대기 중
     if (pendingAction?.type === 'ask_student_info') {
+      const CANCEL_WORDS = ['취소', '그만', '아니', '됐어', 'cancel', '중단'];
+      const isCancelled = CANCEL_WORDS.some(w => t.includes(w));
+
+      if (isCancelled) {
+        setPendingAction(null);
+        setMessages(prev => [...prev, { role: 'bot', text: '등록을 취소했습니다.', ok: true }]);
+        setNlpLoading(false);
+        inputRef.current?.focus();
+        return;
+      }
+
       const { grade, phone } = parseStudentInfo(t);
+      // grade나 phone이 전혀 없으면 무관한 입력으로 판단
+      if (!grade && !phone) {
+        setMessages(prev => [...prev, {
+          role: 'bot',
+          text: `학년과 연락처를 입력해주세요.\n예) 고2, 010-1234-5678\n(취소하려면 "취소"를 입력하세요)`,
+          ok: false,
+        }]);
+        setNlpLoading(false);
+        inputRef.current?.focus();
+        return;
+      }
+
       const name = pendingAction.student_name;
       try {
         await api.post('/students', { name, grade: grade ?? undefined, phone: phone ?? undefined });

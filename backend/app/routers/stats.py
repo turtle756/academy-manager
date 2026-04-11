@@ -88,11 +88,23 @@ async def at_risk_students(
         .where(Attendance.academy_id == membership.academy_id, Attendance.date >= thirty_days_ago)
         .group_by(Attendance.student_id)
     )
-    at_risk = []
-    for row in result.all():
+    rows = result.all()
+    risk_rows = []
+    for row in rows:
         rate = round(row.present / row.total * 100, 1) if row.total else 0
         if rate < 80:
-            student = await db.get(Student, row.student_id)
-            at_risk.append({"student_id": row.student_id, "student_name": student.name if student else "", "attendance_rate": rate})
+            risk_rows.append((row.student_id, rate))
+
+    if not risk_rows:
+        return []
+
+    risk_ids = [r[0] for r in risk_rows]
+    students_result = await db.execute(select(Student).where(Student.id.in_(risk_ids)))
+    student_map = {s.id: s.name for s in students_result.scalars().all()}
+
+    at_risk = [
+        {"student_id": sid, "student_name": student_map.get(sid, ""), "attendance_rate": rate}
+        for sid, rate in risk_rows
+    ]
     at_risk.sort(key=lambda x: x["attendance_rate"])
     return at_risk[:10]

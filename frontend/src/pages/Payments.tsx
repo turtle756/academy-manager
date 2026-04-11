@@ -50,15 +50,22 @@ export default function Payments() {
 
   const loadMonth = async (autoGen = false) => {
     try {
-      if (autoGen) {
-        await api.post('/payments/invoices/auto-generate', null, { params: { month } });
-      }
       const [s, inv] = await Promise.all([
         api.get(`/payments/summary`, { params: { month } }),
         api.get(`/payments/invoices`, { params: { month } }),
       ]);
       setSummary(s.data);
       setInvoices(inv.data);
+      // 청구서가 없을 때만 auto-generate (매 로드마다 호출 방지)
+      if (autoGen && inv.data.length === 0) {
+        await api.post('/payments/invoices/auto-generate', null, { params: { month } });
+        const [s2, inv2] = await Promise.all([
+          api.get(`/payments/summary`, { params: { month } }),
+          api.get(`/payments/invoices`, { params: { month } }),
+        ]);
+        setSummary(s2.data);
+        setInvoices(inv2.data);
+      }
     } catch (err) { console.error(err); }
   };
 

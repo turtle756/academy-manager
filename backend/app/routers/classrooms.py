@@ -75,9 +75,19 @@ async def delete_classroom(
     membership: UserAcademy = Depends(get_membership),
     db: AsyncSession = Depends(get_db),
 ):
+    from sqlalchemy import delete as sql_delete
+    from app.models.attendance import Attendance
+    from app.models.schedule import Schedule
+    from app.models.grade import Grade
+
     classroom = await db.get(Classroom, classroom_id)
     if not classroom or classroom.academy_id != membership.academy_id:
         raise HTTPException(status_code=404, detail="반을 찾을 수 없습니다")
+
+    await db.execute(sql_delete(Attendance).where(Attendance.classroom_id == classroom_id))
+    await db.execute(sql_delete(Grade).where(Grade.classroom_id == classroom_id))
+    await db.execute(sql_delete(Schedule).where(Schedule.classroom_id == classroom_id))
+    await db.execute(sql_delete(StudentClassroom).where(StudentClassroom.classroom_id == classroom_id))
     await db.delete(classroom)
     await db.commit()
     return {"ok": True}
