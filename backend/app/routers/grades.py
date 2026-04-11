@@ -18,6 +18,7 @@ class GradeCreate(BaseModel):
     student_id: int
     classroom_id: int
     exam_name: str
+    exam_type: str = "academy"  # "school" | "mock" | "academy"
     score: int
     total_score: int = 100
     date: str
@@ -37,8 +38,8 @@ async def list_grades(
     result = await db.execute(query)
     return [
         {"id": g.id, "student_id": g.student_id, "student_name": g.student.name,
-         "classroom_id": g.classroom_id, "exam_name": g.exam_name, "score": g.score,
-         "total_score": g.total_score, "date": str(g.date), "note": g.note}
+         "classroom_id": g.classroom_id, "exam_name": g.exam_name, "exam_type": g.exam_type,
+         "score": g.score, "total_score": g.total_score, "date": str(g.date), "note": g.note}
         for g in result.scalars().all()
     ]
 
@@ -51,7 +52,7 @@ async def create_grade(
 ):
     grade = Grade(student_id=data.student_id, classroom_id=data.classroom_id,
                   academy_id=membership.academy_id, exam_name=data.exam_name,
-                  score=data.score, total_score=data.total_score,
+                  exam_type=data.exam_type, score=data.score, total_score=data.total_score,
                   date=date.fromisoformat(data.date), note=data.note)
     db.add(grade)
     await db.commit()

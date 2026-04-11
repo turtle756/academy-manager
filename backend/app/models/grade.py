@@ -14,6 +14,7 @@ class Grade(Base):
     classroom_id: Mapped[int] = mapped_column(ForeignKey("classrooms.id"))
     academy_id: Mapped[int] = mapped_column(ForeignKey("academies.id"))
     exam_name: Mapped[str] = mapped_column(String(200))
+    exam_type: Mapped[str] = mapped_column(String(30), default="academy", server_default="academy")
     score: Mapped[int] = mapped_column(Integer)
     total_score: Mapped[int] = mapped_column(Integer, default=100)
     date: Mapped[date] = mapped_column(Date)

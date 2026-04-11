@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("ALTER TABLE schedules ADD COLUMN IF NOT EXISTS room_id INTEGER REFERENCES rooms(id)"))
         await conn.execute(text("ALTER TABLE students ADD COLUMN IF NOT EXISTS monthly_fee INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text("ALTER TABLE students ADD COLUMN IF NOT EXISTS payment_due_day INTEGER NOT NULL DEFAULT 10"))
+        await conn.execute(text("ALTER TABLE grades ADD COLUMN IF NOT EXISTS exam_type VARCHAR(30) NOT NULL DEFAULT 'academy'"))
     yield
 
 
