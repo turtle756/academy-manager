@@ -237,14 +237,14 @@ async def quick_setup(user: User = Depends(get_current_user), db: AsyncSession =
                 continue
             # 출석 확률: 대부분 출석, 일부 학생 결석 많음
             roll = rng.random()
-            if s[0].name in ("홍태양", "권민혁"):  # 위험 학생
+            if s.name in ("홍태양", "권민혁"):  # 위험 학생
                 status = AttendanceStatus.ABSENT if roll < 0.35 else AttendanceStatus.PRESENT
-            elif s[0].name in ("배수아",):
+            elif s.name in ("배수아",):
                 status = AttendanceStatus.LATE if roll < 0.2 else AttendanceStatus.PRESENT
             else:
                 status = AttendanceStatus.ABSENT if roll < 0.07 else AttendanceStatus.PRESENT
             db.add(Attendance(
-                student_id=s[0].id,
+                student_id=s.id,
                 classroom_id=classrooms[cr_idx].id,
                 academy_id=academy.id,
                 status=status,
@@ -268,10 +268,10 @@ async def quick_setup(user: User = Depends(get_current_user), db: AsyncSession =
                 paid_date = due - timedelta(days=rng.randint(1, 10))
             else:
                 unpaid_names = {"홍태양", "권민혁", "오세진"}
-                status = InvoiceStatus.PENDING if s[0].name in unpaid_names else InvoiceStatus.PAID
+                status = InvoiceStatus.PENDING if s.name in unpaid_names else InvoiceStatus.PAID
                 paid_date = due - timedelta(days=rng.randint(1, 5)) if status == InvoiceStatus.PAID else None
             inv = Invoice(
-                student_id=s[0].id,
+                student_id=s.id,
                 academy_id=academy.id,
                 amount=fee,
                 description=f"{y}년 {m}월 수강료",
@@ -293,7 +293,7 @@ async def quick_setup(user: User = Depends(get_current_user), db: AsyncSession =
         (14, 7, "parent", "scheduled", "수능 전략 학부모 상담 예정"),
     ]
     for ci, days_offset, c_type, c_status, issue in counseling_data:
-        s_obj = students[ci][0]
+        s_obj = students[ci][0]  # (Student, cr_idx) 튜플에서 Student 추출
         db.add(Counseling(
             student_id=s_obj.id,
             teacher_id=user.id,
