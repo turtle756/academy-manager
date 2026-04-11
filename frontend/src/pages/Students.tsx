@@ -10,7 +10,6 @@ interface Student {
   parent_name: string;
   school: string;
   grade: string;
-  pin_code: string;
   nfc_uid: string | null;
 }
 
@@ -189,7 +188,6 @@ export default function Students() {
             <tr>
               <th className="text-left px-4 py-3 font-medium text-gray-600">이름</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">학교/학년</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">PIN</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">NFC</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -199,7 +197,6 @@ export default function Students() {
               <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
                 <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{s.school} {s.grade}</td>
-                <td className="px-4 py-3 font-mono text-gray-500">{s.pin_code}</td>
                 <td className="px-4 py-3">
                   {s.nfc_uid ? (
                     <div className="flex items-center gap-1">
