@@ -17,6 +17,7 @@ from app.models.user_academy import UserAcademy, MemberRole
 from app.models.invitation import Invitation
 from app.models.academy import Academy
 from app.models.student import Student
+from app.models.classroom import Classroom, StudentClassroom
 
 router = APIRouter()
 
@@ -148,17 +149,34 @@ async def quick_setup(user: User = Depends(get_current_user), db: AsyncSession =
         ("정수진", "010-1111-0004", "고1"),
         ("홍길동", "010-1111-0005", "고2"),
     ]
+    students = []
     for name, phone, grade in test_students:
-        db.add(Student(
+        s = Student(
             name=name, phone=phone, parent_phone=f"010-2222-{phone[-4:]}",
             parent_name=f"{name} 학부모", school="테스트학교", grade=grade,
             pin_code="".join(random.choices(string.digits, k=4)),
             qr_token=secrets.token_urlsafe(16),
             academy_id=academy.id,
-        ))
+        )
+        db.add(s)
+        students.append((s, grade))
+
+    # 테스트 반 2개 추가
+    classroom_a = Classroom(name="중등수학A", monthly_fee=300000, academy_id=academy.id)
+    classroom_b = Classroom(name="고등영어B", monthly_fee=350000, academy_id=academy.id)
+    db.add(classroom_a)
+    db.add(classroom_b)
+    await db.flush()
+
+    # 학생-반 배정 (중학생 → A반, 고등학생 → B반)
+    for s, grade in students:
+        if grade.startswith("중"):
+            db.add(StudentClassroom(student_id=s.id, classroom_id=classroom_a.id))
+        else:
+            db.add(StudentClassroom(student_id=s.id, classroom_id=classroom_b.id))
 
     await db.commit()
-    return {"academy_id": academy.id, "message": "테스트 학원 + 원생 5명 생성 완료"}
+    return {"academy_id": academy.id, "message": "테스트 학원 + 원생 5명 + 반 2개 생성 완료"}
 
 
 @router.post("/join/{invite_code}")

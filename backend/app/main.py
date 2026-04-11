@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
         # Schema migrations (idempotent)
         await conn.execute(text("ALTER TABLE classrooms ADD COLUMN IF NOT EXISTS monthly_fee INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text("ALTER TYPE memberrole ADD VALUE IF NOT EXISTS 'vice_owner'"))
     yield
 
 

@@ -79,3 +79,12 @@ async def require_owner(
     if membership.role != MemberRole.OWNER:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="원장 권한이 필요합니다")
     return membership
+
+
+async def require_owner_or_vice(
+    membership: UserAcademy = Depends(get_membership),
+) -> UserAcademy:
+    """원장 또는 부원장 권한 필요 (학원 삭제/구성원 관리 등 민감한 작업은 require_owner 유지)"""
+    if membership.role not in (MemberRole.OWNER, MemberRole.VICE_OWNER):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="원장/부원장 권한이 필요합니다")
+    return membership

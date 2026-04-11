@@ -1,18 +1,37 @@
 import { useEffect, useState } from 'react';
-import { Trash2, UserPlus, Copy, Download, Check } from 'lucide-react';
+import { Trash2, UserPlus, Copy, Download, Check, AlertTriangle } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../lib/auth';
 
 interface Invite { id: number; email: string; role: string; used: boolean; created_at: string }
+interface Member { user_id: number; name: string; email: string; role: string }
+
+const ROLE_LABEL: Record<string, string> = {
+  owner: '원장',
+  vice_owner: '부원장',
+  teacher: '강사',
+};
+const ROLE_COLOR: Record<string, string> = {
+  owner: 'bg-purple-100 text-purple-700',
+  vice_owner: 'bg-indigo-100 text-indigo-700',
+  teacher: 'bg-blue-100 text-blue-700',
+};
 
 export default function SettingsPage() {
-  const { academyId } = useAuth();
+  const { academyId, academyRole } = useAuth();
+  const isOwner = academyRole === 'owner';
+
   const [form, setForm] = useState({ name: '', address: '', address_detail: '', phone: '', bank_name: '', bank_account: '', bank_holder: '' });
   const [saved, setSaved] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'teacher' });
   const [showInvite, setShowInvite] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // 학원 삭제 모달
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   const token = localStorage.getItem('token') || '';
 
@@ -31,7 +50,7 @@ export default function SettingsPage() {
       a.download = 'classmanager-kiosk.zip';
       a.click();
       URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch {
       alert('다운로드 실패');
     }
   };
@@ -42,9 +61,11 @@ export default function SettingsPage() {
       setForm({ name: d.name || '', address: d.address || '', address_detail: d.address_detail || '', phone: d.phone || '', bank_name: d.bank_name || '', bank_account: d.bank_account || '', bank_holder: d.bank_holder || '' });
     }).catch(() => {});
     loadInvites();
+    if (isOwner) loadMembers();
   }, []);
 
   const loadInvites = () => api.get('/invitations').then(r => setInvites(r.data)).catch(() => {});
+  const loadMembers = () => api.get('/academies/members').then(r => setMembers(r.data)).catch(() => {});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +89,30 @@ export default function SettingsPage() {
   const handleDeleteInvite = async (id: number) => {
     await api.delete(`/invitations/${id}`);
     loadInvites();
+  };
+
+  const handleRemoveMember = async (userId: number, name: string) => {
+    if (!confirm(`${name}을(를) 구성원에서 제거하시겠습니까?`)) return;
+    await api.delete(`/academies/members/${userId}`);
+    loadMembers();
+  };
+
+  const handleRoleChange = async (userId: number, role: string) => {
+    await api.patch(`/academies/members/${userId}/role`, { role });
+    loadMembers();
+  };
+
+  const handleDeleteAcademy = async () => {
+    if (deleteConfirmName !== form.name) return;
+    try {
+      await api.delete('/academies');
+      localStorage.removeItem('academy_id');
+      localStorage.removeItem('academy_role');
+      localStorage.removeItem('academy_name');
+      window.location.href = '/select-academy';
+    } catch (err: any) {
+      alert(err.response?.data?.detail || '삭제 실패');
+    }
   };
 
   return (
@@ -109,131 +154,189 @@ export default function SettingsPage() {
         </form>
       </div>
 
-      {/* Staff management */}
-      <div className="bg-white rounded-xl border p-6 max-w-lg">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">구성원 초대</h3>
-          <button onClick={() => setShowInvite(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-            <UserPlus size={14} /> 초대
-          </button>
-        </div>
-        <p className="text-sm text-gray-500 mb-4">
-          초대할 사람의 Google 이메일을 등록하면, 해당 이메일로 로그인 시 자동으로 이 학원에 배정됩니다.
-        </p>
+      {/* Members (owner only) */}
+      {isOwner && (
+        <div className="bg-white rounded-xl border p-6 max-w-lg">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">구성원 관리</h3>
+            <button onClick={() => setShowInvite(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+              <UserPlus size={14} /> 초대
+            </button>
+          </div>
 
-        {showInvite && (
-          <form onSubmit={handleInvite} className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
-            <input
-              required
-              type="email"
-              value={inviteForm.email}
-              onChange={e => setInviteForm({...inviteForm, email: e.target.value})}
-              placeholder="Google 이메일 주소"
-              className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <select
-              value={inviteForm.role}
-              onChange={e => setInviteForm({...inviteForm, role: e.target.value})}
-              className="w-full px-3 py-2 border rounded-lg outline-none"
-            >
-              <option value="teacher">강사</option>
-              <option value="owner">관리자 (원장급)</option>
-            </select>
-            <div className="flex gap-2">
-              <button type="submit" className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm">초대</button>
-              <button type="button" onClick={() => setShowInvite(false)} className="px-4 py-2 border rounded-lg text-sm">취소</button>
-            </div>
-          </form>
-        )}
-
-        <div className="space-y-2">
-          {invites.map(inv => (
-            <div key={inv.id} className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-lg">
-              <div>
-                <span className="text-sm font-medium">{inv.email}</span>
-                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
-                  inv.role === 'owner' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                }`}>
-                  {inv.role === 'owner' ? '관리자' : '강사'}
-                </span>
-                {inv.used && <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">가입 완료</span>}
+          {showInvite && (
+            <form onSubmit={handleInvite} className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
+              <input
+                required type="email"
+                value={inviteForm.email}
+                onChange={e => setInviteForm({...inviteForm, email: e.target.value})}
+                placeholder="Google 이메일 주소"
+                className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                value={inviteForm.role}
+                onChange={e => setInviteForm({...inviteForm, role: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg outline-none"
+              >
+                <option value="teacher">강사</option>
+                <option value="vice_owner">부원장 (수납·학생·출석 관리 가능)</option>
+                <option value="owner">원장 (모든 권한)</option>
+              </select>
+              <div className="flex gap-2">
+                <button type="submit" className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm">초대</button>
+                <button type="button" onClick={() => setShowInvite(false)} className="px-4 py-2 border rounded-lg text-sm">취소</button>
               </div>
-              {!inv.used && (
-                <button onClick={() => handleDeleteInvite(inv.id)} className="p-1.5 hover:bg-red-50 rounded">
-                  <Trash2 size={14} className="text-red-500" />
-                </button>
-              )}
-            </div>
-          ))}
-          {invites.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-3">초대된 구성원이 없습니다</p>
+            </form>
           )}
-        </div>
-      </div>
 
-      {/* NFC 키오스크 다운로드 */}
+          {/* 현재 구성원 */}
+          {members.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs text-gray-500 mb-2">현재 구성원</p>
+              <div className="space-y-2">
+                {members.map(m => (
+                  <div key={m.user_id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <span className="text-sm font-medium">{m.name}</span>
+                      <span className="text-xs text-gray-400 ml-1">{m.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={m.role}
+                        onChange={e => handleRoleChange(m.user_id, e.target.value)}
+                        className={`text-xs px-2 py-1 rounded-full border-0 outline-none ${ROLE_COLOR[m.role] || 'bg-gray-100'}`}
+                      >
+                        <option value="teacher">강사</option>
+                        <option value="vice_owner">부원장</option>
+                        <option value="owner">원장</option>
+                      </select>
+                      <button onClick={() => handleRemoveMember(m.user_id, m.name)} className="p-1 hover:bg-red-50 rounded">
+                        <Trash2 size={13} className="text-red-400" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 초대 대기 목록 */}
+          {invites.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-500 mb-2">초대 대기</p>
+              <div className="space-y-2">
+                {invites.map(inv => (
+                  <div key={inv.id} className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <span className="text-sm font-medium">{inv.email}</span>
+                      <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${ROLE_COLOR[inv.role] || 'bg-gray-100 text-gray-600'}`}>
+                        {ROLE_LABEL[inv.role] || inv.role}
+                      </span>
+                      {inv.used && <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">가입 완료</span>}
+                    </div>
+                    {!inv.used && (
+                      <button onClick={() => handleDeleteInvite(inv.id)} className="p-1.5 hover:bg-red-50 rounded">
+                        <Trash2 size={14} className="text-red-500" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {members.length === 0 && invites.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-3">구성원이 없습니다</p>
+          )}
+
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg text-xs text-gray-500 space-y-1">
+            <p><span className="font-medium text-gray-700">강사</span> — 출석·성적·상담·학생 조회</p>
+            <p><span className="font-medium text-indigo-700">부원장</span> — 강사 권한 + 수납·반 관리·학원 정보 수정</p>
+            <p><span className="font-medium text-purple-700">원장</span> — 모든 권한 + 구성원 관리·학원 삭제</p>
+          </div>
+        </div>
+      )}
+
+      {/* NFC 키오스크 */}
       <div className="bg-white rounded-xl border p-6 max-w-lg">
         <h3 className="text-lg font-semibold mb-1">NFC 키오스크 프로그램</h3>
-        <p className="text-sm text-gray-500 mb-5">
-          ACR1252U USB 리더기를 사용하는 학원용 출석 체크 프로그램입니다.
-        </p>
+        <p className="text-sm text-gray-500 mb-5">ACR1252U USB 리더기를 사용하는 학원용 출석 체크 프로그램입니다.</p>
 
-        <button
-          onClick={downloadKiosk}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-5"
-        >
+        <button onClick={downloadKiosk} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-5">
           <Download size={16} /> 키오스크 프로그램 다운로드
         </button>
 
         <div className="space-y-3 mb-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">JWT 토큰 (설정에 붙여넣기)</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">JWT 토큰</label>
             <div className="flex gap-2">
-              <input
-                readOnly
-                value={token}
-                className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 text-xs font-mono truncate outline-none"
-              />
-              <button
-                onClick={() => copyToClipboard(token, 'token')}
-                className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm flex items-center gap-1"
-              >
+              <input readOnly value={token} className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 text-xs font-mono truncate outline-none" />
+              <button onClick={() => copyToClipboard(token, 'token')} className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm flex items-center gap-1">
                 {copiedField === 'token' ? <><Check size={14} className="text-green-600" /> 복사됨</> : <><Copy size={14} /> 복사</>}
               </button>
             </div>
           </div>
-
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">학원 ID</label>
             <div className="flex gap-2">
-              <input
-                readOnly
-                value={academyId || ''}
-                className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 text-sm font-mono outline-none"
-              />
-              <button
-                onClick={() => copyToClipboard(String(academyId || ''), 'academy')}
-                className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm flex items-center gap-1"
-              >
+              <input readOnly value={academyId || ''} className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 text-sm font-mono outline-none" />
+              <button onClick={() => copyToClipboard(String(academyId || ''), 'academy')} className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm flex items-center gap-1">
                 {copiedField === 'academy' ? <><Check size={14} className="text-green-600" /> 복사됨</> : <><Copy size={14} /> 복사</>}
               </button>
             </div>
           </div>
         </div>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700 space-y-2">
-          <p className="font-semibold text-blue-900">사용 순서</p>
-          <ol className="list-decimal list-inside space-y-1 text-xs">
-            <li>Python 3.8+ 설치 (python.org)</li>
-            <li>위 버튼으로 ZIP 다운로드 → 압축 해제</li>
-            <li>USB NFC 리더기(ACR1252U) PC에 연결</li>
-            <li>폴더의 <code className="bg-white px-1 rounded">키오스크_실행.bat</code> 더블클릭</li>
-            <li>브라우저 열리면 우측 상단 3초 길게 누르기 → PIN <code className="bg-white px-1 rounded">0000</code></li>
-            <li>설정 탭에 위 토큰과 학원 ID 붙여넣기 → 저장</li>
-            <li>카드 등록 탭에서 학생별로 NFC 카드 등록</li>
-          </ol>
-        </div>
       </div>
+
+      {/* 학원 삭제 (원장만) */}
+      {isOwner && (
+        <div className="bg-white rounded-xl border border-red-200 p-6 max-w-lg">
+          <h3 className="text-lg font-semibold text-red-700 mb-2 flex items-center gap-2">
+            <AlertTriangle size={18} /> 학원 삭제
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            학원을 삭제하면 모든 학생·수납·출석·성적 데이터가 영구적으로 삭제됩니다. 복구할 수 없습니다.
+          </p>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+          >
+            학원 삭제
+          </button>
+        </div>
+      )}
+
+      {/* 삭제 확인 모달 */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+            <h3 className="text-lg font-bold text-red-700 mb-3 flex items-center gap-2">
+              <AlertTriangle size={18} /> 학원 삭제 확인
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              이 작업은 되돌릴 수 없습니다. 계속하려면 아래에 학원 이름 <strong>{form.name}</strong>을 정확히 입력하세요.
+            </p>
+            <input
+              value={deleteConfirmName}
+              onChange={e => setDeleteConfirmName(e.target.value)}
+              placeholder={form.name}
+              className="w-full px-3 py-2 border border-red-300 rounded-lg outline-none focus:ring-2 focus:ring-red-400 mb-4"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleDeleteAcademy}
+                disabled={deleteConfirmName !== form.name}
+                className="flex-1 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+              >
+                영구 삭제
+              </button>
+              <button onClick={() => { setShowDeleteModal(false); setDeleteConfirmName(''); }} className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

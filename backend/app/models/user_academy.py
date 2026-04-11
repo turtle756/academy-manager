@@ -9,6 +9,7 @@ from app.core.database import Base
 
 class MemberRole(str, enum.Enum):
     OWNER = "owner"
+    VICE_OWNER = "vice_owner"
     TEACHER = "teacher"
 
 
