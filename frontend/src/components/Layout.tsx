@@ -18,7 +18,6 @@ const ownerNav = [
   { to: '/counseling', icon: MessageSquare, label: '상담일지' },
   { to: '/documents', icon: FileText, label: '서류 생성' },
   { to: '/stats', icon: BarChart3, label: '통계' },
-  { to: '/kiosk', icon: UserCheck, label: '키오스크' },
   { to: '/settings', icon: Settings, label: '설정' },
 ];
 

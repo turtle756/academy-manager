@@ -15,7 +15,6 @@ import Counseling from './pages/Counseling';
 import Documents from './pages/Documents';
 import Stats from './pages/Stats';
 import Settings from './pages/Settings';
-import Kiosk from './pages/Kiosk';
 import ParentView from './pages/ParentView';
 import LoginCallback from './pages/LoginCallback';
 
@@ -51,7 +50,6 @@ function App() {
             <Route path="/counseling" element={<Counseling />} />
             <Route path="/documents" element={<Documents />} />
             <Route path="/stats" element={<Stats />} />
-            <Route path="/kiosk" element={<Kiosk />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>
