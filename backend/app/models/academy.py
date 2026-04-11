@@ -23,3 +23,4 @@ class Academy(Base):
     students: Mapped[list["Student"]] = relationship(back_populates="academy")
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="academy")
     notices: Mapped[list["Notice"]] = relationship(back_populates="academy")
+    rooms: Mapped[list["Room"]] = relationship(back_populates="academy")

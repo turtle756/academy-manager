@@ -1,7 +1,7 @@
 import enum
 from datetime import time, datetime
 
-from sqlalchemy import String, ForeignKey, Enum, Time, DateTime, func
+from sqlalchemy import String, ForeignKey, Enum, Time, DateTime, func, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -27,9 +27,11 @@ class Schedule(Base):
     day_of_week: Mapped[DayOfWeek] = mapped_column(Enum(DayOfWeek))
     start_time: Mapped[time] = mapped_column(Time)
     end_time: Mapped[time] = mapped_column(Time)
-    room: Mapped[str | None] = mapped_column(String(50))
+    room: Mapped[str | None] = mapped_column(String(50))  # 레거시, room_id로 대체
+    room_id: Mapped[int | None] = mapped_column(ForeignKey("rooms.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     classroom: Mapped["Classroom"] = relationship(back_populates="schedules")
     teacher: Mapped["User | None"] = relationship()
     academy: Mapped["Academy"] = relationship(back_populates="schedules")
+    room_obj: Mapped["Room | None"] = relationship(back_populates="schedules")

@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routers import auth, academies, classrooms, students, schedules, attendance, payments, grades, counseling, stats, documents, parent, invitations, kiosk, nlp
+from app.routers import auth, academies, classrooms, students, schedules, attendance, payments, grades, counseling, stats, documents, parent, invitations, kiosk, nlp, rooms
 
 
 @asynccontextmanager
@@ -29,6 +29,7 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("ALTER TABLE counselings ALTER COLUMN title DROP NOT NULL"))
         await conn.execute(text("ALTER TABLE counselings ALTER COLUMN content DROP NOT NULL"))
         await conn.execute(text("ALTER TABLE counselings ALTER COLUMN content SET DEFAULT ''"))
+        await conn.execute(text("ALTER TABLE schedules ADD COLUMN IF NOT EXISTS room_id INTEGER REFERENCES rooms(id)"))
     yield
 
 
@@ -58,6 +59,7 @@ app.include_router(parent.router, prefix="/api/parent", tags=["parent"])
 app.include_router(invitations.router, prefix="/api/invitations", tags=["invitations"])
 app.include_router(kiosk.router, prefix="/api/kiosk", tags=["kiosk"])
 app.include_router(nlp.router, prefix="/api/nlp", tags=["nlp"])
+app.include_router(rooms.router, prefix="/api/rooms", tags=["rooms"])
 
 # Serve React build in production
 _static_dir: Path | None = None

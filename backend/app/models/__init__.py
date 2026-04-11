@@ -10,9 +10,10 @@ from app.models.grade import Grade
 from app.models.counseling import Counseling
 from app.models.notice import Notice
 from app.models.invitation import Invitation
+from app.models.room import Room
 
 __all__ = [
     "User", "Academy", "UserAcademy", "Classroom", "Student", "Schedule",
     "Attendance", "AttendanceSession", "Payment", "Invoice", "Grade",
-    "Counseling", "Notice", "Invitation",
+    "Counseling", "Notice", "Invitation", "Room",
 ]
