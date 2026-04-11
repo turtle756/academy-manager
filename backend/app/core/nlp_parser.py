@@ -128,6 +128,9 @@ ATTENDANCE_STATUS_MAP = {
 }
 
 INTENT_PATTERNS: list[tuple[str, list[str]]] = [
+    # 학생 추가
+    ("student_create",   ["추가해줘", "추가 해줘", "등록해줘", "등록 해줘",
+                          "새로 추가", "원생 추가", "학생 추가", "학생 등록"]),
     # 출결 처리
     ("attendance_set",   ["결석 처리", "출석 처리", "지각 처리", "조퇴 처리",
                           "결석으로", "출석으로", "결석했", "출석했"]),
@@ -156,6 +159,8 @@ def detect_intent(text: str) -> str | None:
                 return intent
 
     # 단어 단위 추가 감지
+    if re.search(r"추가|등록", text) and re.search(r"해줘|해주세요|할게|하자", text):
+        return "student_create"
     if re.search(r"결석|지각|조퇴|출석", text) and re.search(r"처리|했|해줘|해주세요", text):
         return "attendance_set"
     if re.search(r"결석|지각|조퇴|출석", text):
@@ -189,6 +194,16 @@ class ParseResult:
         return {"intent": self.intent, "params": self.params, "confidence": self.confidence}
 
 
+def extract_new_name(text: str) -> str | None:
+    """기존 학생 목록 없이 텍스트에서 이름 후보 추출 (2~4 한글 글자, 동사 키워드 제외)"""
+    STOP_WORDS = {"추가", "등록", "처리", "학생", "원생", "오늘", "내일", "어제", "이번", "지난", "출석", "결석"}
+    words = re.findall(r"[가-힣]{2,4}", text)
+    for w in words:
+        if w not in STOP_WORDS:
+            return w
+    return None
+
+
 def parse(text: str, student_names: list[str], classroom_names: list[str]) -> ParseResult | None:
     text = text.strip()
     intent = detect_intent(text)
@@ -200,6 +215,9 @@ def parse(text: str, student_names: list[str], classroom_names: list[str]) -> Pa
 
     # 학생 이름 추출
     student_name = extract_name_from_text(text, student_names)
+    # student_create: 기존 목록에 없어도 이름 추출 시도
+    if not student_name and intent == "student_create":
+        student_name = extract_new_name(text)
     if student_name:
         params["student_name"] = student_name
 
@@ -226,7 +244,7 @@ def parse(text: str, student_names: list[str], classroom_names: list[str]) -> Pa
 
     # 신뢰도: 학생 이름이 필요한 액션에서 이름이 없으면 low
     confidence = "high"
-    if intent in ("attendance_set", "payment_set") and "student_name" not in params:
+    if intent in ("attendance_set", "payment_set", "student_create") and "student_name" not in params:
         confidence = "low"
 
     return ParseResult(intent=intent, params=params, confidence=confidence)

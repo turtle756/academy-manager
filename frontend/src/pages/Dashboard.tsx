@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { UserX, CreditCard, MessageSquare, Users, ChevronRight, AlertTriangle, Send, BookOpen } from 'lucide-react';
+import { UserX, CreditCard, MessageSquare, Users, ChevronRight, AlertTriangle, Send } from 'lucide-react';
 import api from '../lib/api';
 
 interface DashboardData {
@@ -11,11 +11,11 @@ interface DashboardData {
   total_students: number;
 }
 
-interface NLPResult {
-  ok: boolean;
-  message: string;
+interface ChatMessage {
+  role: 'user' | 'bot';
+  text: string;
+  ok?: boolean;
   hint?: string;
-  chips?: string[];
 }
 
 interface AtRisk {
@@ -46,11 +46,10 @@ export default function Dashboard() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
 
   const [nlpText, setNlpText] = useState('');
-  const [nlpResult, setNlpResult] = useState<NLPResult | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [nlpLoading, setNlpLoading] = useState(false);
-  const [showHints, setShowHints] = useState(false);
-  const [hints, setHints] = useState<any[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.get('/stats/dashboard').then(r => setStats(r.data)).catch(() => {});
@@ -60,33 +59,33 @@ export default function Dashboard() {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   const nlpSubmit = async (text: string) => {
     const t = text.trim();
     if (!t) return;
-    setNlpText(t);
+    setNlpText('');
+    setMessages(prev => [...prev, { role: 'user', text: t }]);
     setNlpLoading(true);
-    setNlpResult(null);
     try {
       const res = await api.post('/nlp', { text: t });
-      setNlpResult(res.data);
-      // 출결/납부 처리 후 대시보드 새로고침
-      if (res.data.ok && res.data.intent && ['attendance_set','payment_set'].includes(res.data.intent)) {
+      const d = res.data;
+      setMessages(prev => [...prev, {
+        role: 'bot',
+        text: d.message + (d.hint ? `\n${d.hint}` : ''),
+        ok: d.ok,
+      }]);
+      if (d.ok && d.intent && ['attendance_set', 'payment_set', 'student_create'].includes(d.intent)) {
         api.get('/stats/dashboard').then(r => setStats(r.data)).catch(() => {});
       }
     } catch {
-      setNlpResult({ ok: false, message: '오류가 발생했습니다.' });
+      setMessages(prev => [...prev, { role: 'bot', text: '오류가 발생했습니다.', ok: false }]);
     } finally {
       setNlpLoading(false);
+      inputRef.current?.focus();
     }
-  };
-
-  const loadHints = async () => {
-    if (hints.length > 0) { setShowHints(v => !v); return; }
-    try {
-      const res = await api.get('/nlp/hints');
-      setHints(res.data.categories);
-      setShowHints(true);
-    } catch {}
   };
 
   return (
@@ -96,69 +95,73 @@ export default function Dashboard() {
         <p className="text-sm text-gray-500 mt-1">{todayStr} ({todayLabel}요일)</p>
       </div>
 
-      {/* NLP 입력창 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <div className="flex gap-2 mb-3">
+      {/* 채팅형 NLP */}
+      <div className="bg-white rounded-xl border border-gray-200 mb-6 flex flex-col" style={{ height: '280px' }}>
+        {/* 메시지 영역 */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
+              <p className="text-sm">자연어로 명령하거나 조회하세요</p>
+              <div className="flex gap-1.5 flex-wrap justify-center">
+                {QUICK_CHIPS.map(chip => (
+                  <button key={chip} onClick={() => nlpSubmit(chip)}
+                    className="px-2.5 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-500 rounded-full text-xs transition-colors">
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm whitespace-pre-line ${
+                msg.role === 'user'
+                  ? 'bg-blue-600 text-white rounded-br-sm'
+                  : msg.ok === false
+                    ? 'bg-orange-50 text-orange-800 border border-orange-200 rounded-bl-sm'
+                    : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+              }`}>
+                {msg.text}
+              </div>
+            </div>
+          ))}
+          {nlpLoading && (
+            <div className="flex justify-start">
+              <div className="bg-gray-100 px-3 py-2 rounded-2xl rounded-bl-sm text-sm text-gray-400">처리 중...</div>
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* 입력 영역 */}
+        <div className="border-t px-3 py-2.5 flex gap-2">
+          {messages.length > 0 && (
+            <div className="flex gap-1 mr-1">
+              {QUICK_CHIPS.map(chip => (
+                <button key={chip} onClick={() => nlpSubmit(chip)}
+                  className="px-2 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-500 rounded-full text-xs hidden md:block">
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
           <input
             ref={inputRef}
             value={nlpText}
             onChange={e => setNlpText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && nlpSubmit(nlpText)}
-            placeholder="무엇이든 물어보거나 처리하세요  예) 오늘 김민수 결석, 이번달 미납자"
-            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={e => e.key === 'Enter' && !nlpLoading && nlpSubmit(nlpText)}
+            placeholder="예) 오늘 김민수 결석, 이번달 미납자, 김기현 추가해줘"
+            className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
             disabled={nlpLoading}
           />
           <button
             onClick={() => nlpSubmit(nlpText)}
             disabled={nlpLoading || !nlpText.trim()}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg transition-colors flex items-center gap-1.5 text-sm font-medium"
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg transition-colors"
           >
             <Send size={14} />
-            {nlpLoading ? '처리 중...' : '실행'}
           </button>
         </div>
-
-        {/* 결과 */}
-        {nlpResult && (
-          <div className={`px-3 py-2 rounded-lg text-sm mb-2 ${nlpResult.ok ? 'bg-green-50 text-green-800' : 'bg-orange-50 text-orange-800'}`}>
-            {nlpResult.message}
-            {nlpResult.hint && <span className="ml-2 opacity-60 text-xs">{nlpResult.hint}</span>}
-          </div>
-        )}
-
-        {/* 빠른 칩 */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {QUICK_CHIPS.map(chip => (
-            <button key={chip} onClick={() => nlpSubmit(chip)}
-              className="px-2.5 py-1 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-600 rounded-full text-xs transition-colors">
-              {chip}
-            </button>
-          ))}
-          <button onClick={loadHints}
-            className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
-            <BookOpen size={12} />
-            {showHints ? '가이드 닫기' : '사용 예시'}
-          </button>
-        </div>
-
-        {/* 가이드 */}
-        {showHints && hints.length > 0 && (
-          <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-3">
-            {hints.map(cat => (
-              <div key={cat.name}>
-                <p className="text-xs font-semibold text-gray-500 mb-1">{cat.name}</p>
-                <div className="flex flex-wrap gap-1">
-                  {cat.examples.map((ex: string) => (
-                    <button key={ex} onClick={() => { nlpSubmit(ex); setShowHints(false); }}
-                      className="px-2 py-0.5 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-600 rounded text-xs">
-                      {ex}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Action cards */}

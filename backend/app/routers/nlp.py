@@ -239,6 +239,29 @@ async def execute_counseling_query(params: dict, academy_id: int, db: AsyncSessi
     return {"ok": True, "message": f"예정 상담 {len(items)}건: {', '.join(items)}"}
 
 
+async def execute_student_create(params: dict, academy_id: int, db: AsyncSession) -> dict:
+    student_name = params.get("student_name")
+    if not student_name:
+        return {"ok": False, "message": "추가할 학생 이름을 알 수 없습니다. 예: '김기현 추가해줘'"}
+
+    # 중복 확인
+    existing = await db.execute(
+        select(Student).where(Student.academy_id == academy_id, Student.name == student_name)
+    )
+    if existing.scalar_one_or_none():
+        return {"ok": False, "message": f"'{student_name}' 학생이 이미 등록되어 있습니다."}
+
+    student = Student(name=student_name, academy_id=academy_id)
+    db.add(student)
+    await db.commit()
+    return {
+        "ok": True,
+        "message": f"'{student_name}' 학생을 등록했습니다. 원생 관리에서 학년·연락처를 추가로 입력해주세요.",
+        "action": "navigate",
+        "target": "/students",
+    }
+
+
 async def execute_student_query(params: dict, academy_id: int, db: AsyncSession) -> dict:
     student_name = params.get("student_name")
 
@@ -311,7 +334,9 @@ async def nlp_command(
         }
 
     # 실행
-    if intent == "attendance_set":
+    if intent == "student_create":
+        result = await execute_student_create(params, academy_id, db)
+    elif intent == "attendance_set":
         result = await execute_attendance_set(params, academy_id, membership.user_id, db)
     elif intent == "attendance_query":
         result = await execute_attendance_query(params, academy_id, db)
