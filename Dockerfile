@@ -12,6 +12,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
+COPY nfc-relay/ /app/nfc-relay/
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 
 EXPOSE ${PORT:-8000}
