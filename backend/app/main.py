@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routers import auth, academies, classrooms, students, schedules, attendance, payments, grades, counseling, stats, documents, parent, invitations, kiosk
+from app.routers import auth, academies, classrooms, students, schedules, attendance, payments, grades, counseling, stats, documents, parent, invitations, kiosk, nlp
 
 
 @asynccontextmanager
@@ -57,6 +57,7 @@ app.include_router(documents.router, prefix="/api/documents", tags=["documents"]
 app.include_router(parent.router, prefix="/api/parent", tags=["parent"])
 app.include_router(invitations.router, prefix="/api/invitations", tags=["invitations"])
 app.include_router(kiosk.router, prefix="/api/kiosk", tags=["kiosk"])
+app.include_router(nlp.router, prefix="/api/nlp", tags=["nlp"])
 
 # Serve React build in production
 _static_dir: Path | None = None
