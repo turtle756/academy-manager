@@ -97,16 +97,55 @@ INTENT_EXAMPLES: dict[str, list[str]] = {
     ],
     'counseling_create': [
         '상담 예약해줘', '상담 잡아줘', '상담 등록해줘', '상담 일정 잡아',
-        '상담 신청해줘', '상담 예약 부탁해', '상담 잡아',
+        '상담 신청해줘', '상담 예약 부탁해', '상담 잡아', '상담 넣어줘',
+        '상담 일정 만들어줘', '다음주 상담 예약',
     ],
     'counseling_query': [
         '상담 일정 알려줘', '예정된 상담', '상담 언제야', '상담 현황',
         '상담 목록', '이번주 상담', '다음 상담 일정', '상담 예정',
     ],
+    'counseling_history': [
+        '상담 기록', '상담 내역', '상담 이력', '지난 상담', '과거 상담',
+        '상담 기록 있어', '이전 상담', '상담 몇 번 했어', '상담 내용',
+    ],
     'student_query': [
         '연락처 알려줘', '학부모 번호', '재원생 몇 명이야', '학생 수',
         '전화번호 알려줘', '학부모 연락처', '몇 명이야', '재원생 현황',
         '학생 정보', '총 몇 명', '원생 수 알려줘',
+    ],
+    'student_update': [
+        '전화번호 바꿔줘', '연락처 바꿔줘', '학년 바꿔줘', '정보 수정해줘',
+        '번호 변경해줘', '이름 바꿔줘', '학교 바꿔줘', '정보 바꿔줘',
+        '학년 변경해줘', '수강료 바꿔줘', '월비 변경해줘',
+    ],
+    'student_assign': [
+        '반에 넣어줘', '반 배정해줘', '반에 추가해줘', '수업 넣어줘',
+        '반 등록해줘', '클래스 배정', '반에 등록해줘', '수업 배정해줘',
+        '반 배치해줘', '수업에 추가해줘',
+    ],
+    'attendance_history': [
+        '몇 번 왔어', '출석 기록', '출석 내역', '이번달 출석', '출석 이력',
+        '결석 몇 번', '지각 몇 번', '출석률 어때', '얼마나 왔어', '출석 현황 학생',
+        '몇 번 결석', '이번달 몇 번', '출석 횟수',
+    ],
+    'at_risk_query': [
+        '출석 위험', '출석 낮은 학생', '위험 학생', '출석률 낮은 애',
+        '결석 많은 학생', '관리 필요한 학생', '출석 문제 학생',
+        '출석 안 좋은 학생', '많이 빠진 학생', '위험군',
+    ],
+    'payment_cancel': [
+        '납부 취소', '수납 취소', '납부 되돌려', '납부 취소해줘', '수납 취소해줘',
+        '결제 취소', '납부 취소 부탁해', '수납 롤백', '납부 원상복구',
+    ],
+    'payment_summary': [
+        '수납률 어때', '납부율 얼마야', '이번달 수납', '수납 현황 전체',
+        '이번달 납부율', '수납 통계', '납부 현황 요약', '총 수납 얼마',
+        '이번달 수납 상황', '납부 완료 몇 명',
+    ],
+    'grade_query': [
+        '성적 알려줘', '최근 성적', '점수 알려줘', '시험 결과', '성적 조회',
+        '성적 어때', '몇 점 받았어', '시험 점수', '성적 확인해줘',
+        '성적 내역', '성적 이력', '점수 몇 점',
     ],
 }
 
@@ -279,9 +318,17 @@ _KEYWORD_PATTERNS: list[tuple[str, list[str]]] = [
     ('attendance_query', ['출석 현황', '결석자', '오늘 출석', '출결 확인', '안 온 학생']),
     ('payment_set',      ['납부 완료', '수납 완료', '납부했', '수납했', '돈 받았', '냈어']),
     ('payment_query',    ['미납', '납부 안', '안 낸', '미납자', '납부 현황', '수납 현황']),
-    ('counseling_create',['상담 예약', '상담 잡아', '상담 등록']),
+    ('counseling_create',['상담 예약', '상담 잡아', '상담 등록', '상담 넣어']),
     ('counseling_query', ['상담 일정', '예정된 상담', '상담 현황', '상담 목록']),
+    ('counseling_history',['상담 기록', '상담 내역', '상담 이력', '지난 상담']),
     ('student_query',    ['연락처', '학부모', '몇 명', '재원생', '학생 수']),
+    ('student_update',   ['바꿔줘', '변경해줘', '수정해줘', '전화번호 변경', '학년 변경']),
+    ('student_assign',   ['반에 넣어', '반 배정', '반에 추가', '수업 배정']),
+    ('attendance_history',['몇 번 왔', '출석 기록', '출석 내역', '몇 번 결석', '출석 횟수']),
+    ('at_risk_query',    ['출석 위험', '위험 학생', '출석 낮은', '많이 빠진', '관리 필요']),
+    ('payment_cancel',   ['납부 취소', '수납 취소', '결제 취소']),
+    ('payment_summary',  ['수납률', '납부율', '수납 현황 전체', '이번달 수납 상황', '총 수납']),
+    ('grade_query',      ['성적', '점수', '시험 결과', '성적 조회', '시험 점수']),
 ]
 
 def _keyword_fallback(text: str) -> str | None:
@@ -299,8 +346,14 @@ def _keyword_fallback(text: str) -> str | None:
         return 'payment_set'
     if re.search(r'납부|수납|미납', text):
         return 'payment_query'
+    if re.search(r'상담', text) and re.search(r'기록|내역|이력|했', text):
+        return 'counseling_history'
+    if re.search(r'상담', text) and re.search(r'예약|잡아|등록|넣어', text):
+        return 'counseling_create'
     if re.search(r'상담', text):
         return 'counseling_query'
+    if re.search(r'성적|점수|시험', text):
+        return 'grade_query'
     return None
 
 
@@ -358,9 +411,31 @@ def parse(text: str, student_names: list[str], classroom_names: list[str]) -> Pa
     if intent == 'attendance_set':
         params['status'] = detect_attendance_status(text)
 
+    # student_update: 변경 필드 감지
+    if intent == 'student_update':
+        if re.search(r'전화|번호|연락처', text):
+            params['field'] = 'phone'
+            m = re.search(r'0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}', text)
+            if m:
+                params['value'] = m.group(0).replace(' ', '-')
+        elif re.search(r'학년', text):
+            params['field'] = 'grade'
+            m = re.search(r'[초중고][1-6]|[1-9]학년', text)
+            if m:
+                params['value'] = m.group(0)
+        elif re.search(r'학교', text):
+            params['field'] = 'school'
+        elif re.search(r'수강료|월비|월수강료', text):
+            params['field'] = 'monthly_fee'
+            m = re.search(r'(\d[\d,]+)원?', text)
+            if m:
+                params['value'] = int(m.group(1).replace(',', ''))
+
     # 신뢰도
     confidence = 'high'
     if intent in ('attendance_set', 'payment_set', 'student_create') and 'student_name' not in params:
+        confidence = 'low'
+    if intent in ('attendance_history', 'grade_query', 'student_update', 'counseling_history') and 'student_name' not in params:
         confidence = 'low'
 
     return ParseResult(intent=intent, params=params, confidence=confidence)

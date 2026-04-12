@@ -6,7 +6,7 @@ from datetime import date as date_cls
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -19,6 +19,7 @@ from app.models.classroom import Classroom, StudentClassroom
 from app.models.attendance import Attendance, AttendanceStatus, AttendanceMethod
 from app.models.payment import Invoice, InvoiceStatus
 from app.models.counseling import Counseling
+from app.models.grade import Grade
 
 router = APIRouter()
 
@@ -260,6 +261,268 @@ async def execute_student_create(params: dict, academy_id: int, db: AsyncSession
     }
 
 
+async def execute_attendance_history(params: dict, academy_id: int, db: AsyncSession) -> dict:
+    student_name = params.get("student_name")
+    if not student_name:
+        return {"ok": False, "message": "학생 이름을 알 수 없습니다. 예: '김민수 이번달 출석 기록'"}
+
+    student = await _resolve_student(student_name, academy_id, db)
+    if not student:
+        return {"ok": False, "message": f"'{student_name}' 학생을 찾을 수 없습니다."}
+
+    today = date_cls.today()
+    year = params.get("year", today.year)
+    month = params.get("month", today.month)
+
+    from calendar import monthrange
+    first = date_cls(year, month, 1)
+    last = date_cls(year, month, monthrange(year, month)[1])
+
+    result = await db.execute(
+        select(Attendance).where(
+            Attendance.student_id == student.id,
+            Attendance.academy_id == academy_id,
+            Attendance.date >= first,
+            Attendance.date <= last,
+        )
+    )
+    records = result.scalars().all()
+
+    total = len(records)
+    present = sum(1 for r in records if r.status in (AttendanceStatus.PRESENT, AttendanceStatus.LATE))
+    absent = sum(1 for r in records if r.status == AttendanceStatus.ABSENT)
+    late = sum(1 for r in records if r.status == AttendanceStatus.LATE)
+
+    if total == 0:
+        return {"ok": True, "message": f"{student.name} 학생의 {year}년 {month}월 출석 기록이 없습니다."}
+
+    rate = round(present / total * 100, 1)
+    return {
+        "ok": True,
+        "message": f"{student.name} {year}년 {month}월 출석 현황 — 총 {total}회 중 출석 {present}회 ({rate}%), 결석 {absent}회, 지각 {late}회",
+    }
+
+
+async def execute_at_risk_query(academy_id: int, db: AsyncSession) -> dict:
+    from datetime import timedelta
+    thirty_days_ago = date_cls.today() - timedelta(days=30)
+    result = await db.execute(
+        select(Attendance.student_id,
+               func.count().label("total"),
+               func.count().filter(Attendance.status.in_([AttendanceStatus.PRESENT, AttendanceStatus.LATE])).label("present"))
+        .where(Attendance.academy_id == academy_id, Attendance.date >= thirty_days_ago)
+        .group_by(Attendance.student_id)
+    )
+    rows = result.all()
+    risk_rows = [(row.student_id, round(row.present / row.total * 100, 1)) for row in rows if row.total and row.present / row.total < 0.8]
+
+    if not risk_rows:
+        return {"ok": True, "message": "출석 위험 학생이 없습니다. (최근 30일 기준)"}
+
+    ids = [r[0] for r in risk_rows]
+    student_map_result = await db.execute(select(Student).where(Student.id.in_(ids)))
+    student_map = {s.id: s.name for s in student_map_result.scalars().all()}
+
+    risk_rows.sort(key=lambda x: x[1])
+    items = [f"{student_map.get(sid, '?')} ({rate}%)" for sid, rate in risk_rows[:10]]
+    return {"ok": True, "message": f"출석 위험 학생 {len(items)}명 — {', '.join(items)}"}
+
+
+async def execute_payment_cancel(params: dict, academy_id: int, db: AsyncSession) -> dict:
+    student_name = params.get("student_name")
+    if not student_name:
+        return {"ok": False, "message": "학생 이름을 알 수 없습니다."}
+
+    student = await _resolve_student(student_name, academy_id, db)
+    if not student:
+        return {"ok": False, "message": f"'{student_name}' 학생을 찾을 수 없습니다."}
+
+    today = date_cls.today()
+    year = params.get("year", today.year)
+    month = params.get("month", today.month)
+
+    from calendar import monthrange
+    first = date_cls(year, month, 1)
+    last = date_cls(year, month, monthrange(year, month)[1])
+
+    result = await db.execute(
+        select(Invoice).where(
+            Invoice.student_id == student.id,
+            Invoice.academy_id == academy_id,
+            Invoice.due_date >= first,
+            Invoice.due_date <= last,
+            Invoice.status == InvoiceStatus.PAID,
+        )
+    )
+    invoice = result.scalar_one_or_none()
+    if not invoice:
+        return {"ok": False, "message": f"{student.name} 학생의 {year}년 {month}월 납부 완료 청구서가 없습니다."}
+
+    invoice.status = InvoiceStatus.PENDING
+    invoice.paid_date = None
+    await db.commit()
+    return {"ok": True, "message": f"{student.name} 학생 {year}년 {month}월 납부 취소 처리했습니다."}
+
+
+async def execute_payment_summary(params: dict, academy_id: int, db: AsyncSession) -> dict:
+    today = date_cls.today()
+    year = params.get("year", today.year)
+    month = params.get("month", today.month)
+
+    from calendar import monthrange
+    first = date_cls(year, month, 1)
+    last = date_cls(year, month, monthrange(year, month)[1])
+
+    result = await db.execute(
+        select(Invoice).where(
+            Invoice.academy_id == academy_id,
+            Invoice.due_date >= first,
+            Invoice.due_date <= last,
+        )
+    )
+    invoices = result.scalars().all()
+    if not invoices:
+        return {"ok": True, "message": f"{year}년 {month}월 청구서가 없습니다."}
+
+    total = len(invoices)
+    paid = sum(1 for inv in invoices if inv.status == InvoiceStatus.PAID)
+    paid_amount = sum(inv.amount for inv in invoices if inv.status == InvoiceStatus.PAID)
+    unpaid_amount = sum(inv.amount for inv in invoices if inv.status != InvoiceStatus.PAID)
+    rate = round(paid / total * 100, 1) if total else 0
+
+    return {
+        "ok": True,
+        "message": f"{year}년 {month}월 수납 현황 — 납부 {paid}/{total}명 ({rate}%) / 수납액 {paid_amount:,}원 / 미납액 {unpaid_amount:,}원",
+    }
+
+
+async def execute_counseling_create(params: dict, academy_id: int, user_id: int, db: AsyncSession) -> dict:
+    student_name = params.get("student_name")
+    if not student_name:
+        return {"ok": False, "message": "학생 이름을 알 수 없습니다. 예: '김민수 다음주 화요일 상담 잡아줘'"}
+
+    student = await _resolve_student(student_name, academy_id, db)
+    if not student:
+        return {"ok": False, "message": f"'{student_name}' 학생을 찾을 수 없습니다."}
+
+    target_date = params.get("date")
+    if not target_date:
+        return {"ok": False, "message": f"상담 날짜를 알 수 없습니다. 예: '김민수 다음주 화요일 상담 잡아줘'"}
+
+    counseling = Counseling(
+        student_id=student.id,
+        teacher_id=user_id,
+        academy_id=academy_id,
+        date=date_cls.fromisoformat(target_date),
+        status="scheduled",
+        counseling_type="regular",
+    )
+    db.add(counseling)
+    await db.commit()
+    return {"ok": True, "message": f"{student.name} 학생 {target_date} 상담 일정을 등록했습니다."}
+
+
+async def execute_counseling_history(params: dict, academy_id: int, db: AsyncSession) -> dict:
+    student_name = params.get("student_name")
+    if not student_name:
+        return {"ok": False, "message": "학생 이름을 알 수 없습니다."}
+
+    student = await _resolve_student(student_name, academy_id, db)
+    if not student:
+        return {"ok": False, "message": f"'{student_name}' 학생을 찾을 수 없습니다."}
+
+    result = await db.execute(
+        select(Counseling)
+        .where(Counseling.student_id == student.id, Counseling.academy_id == academy_id)
+        .order_by(Counseling.date.desc())
+        .limit(5)
+    )
+    records = result.scalars().all()
+    if not records:
+        return {"ok": True, "message": f"{student.name} 학생의 상담 기록이 없습니다."}
+
+    items = [f"{c.date}({c.counseling_type or '일반'})" for c in records]
+    return {"ok": True, "message": f"{student.name} 상담 기록 {len(records)}건 — {', '.join(items)}"}
+
+
+async def execute_student_assign(params: dict, academy_id: int, db: AsyncSession) -> dict:
+    student_name = params.get("student_name")
+    classroom_name = params.get("classroom_name")
+    if not student_name:
+        return {"ok": False, "message": "학생 이름을 알 수 없습니다."}
+    if not classroom_name:
+        return {"ok": False, "message": "반 이름을 알 수 없습니다. 예: '김민수 중등수학A반에 넣어줘'"}
+
+    student = await _resolve_student(student_name, academy_id, db)
+    if not student:
+        return {"ok": False, "message": f"'{student_name}' 학생을 찾을 수 없습니다."}
+
+    cr_result = await db.execute(select(Classroom).where(Classroom.academy_id == academy_id, Classroom.name == classroom_name))
+    classroom = cr_result.scalar_one_or_none()
+    if not classroom:
+        return {"ok": False, "message": f"'{classroom_name}' 반을 찾을 수 없습니다."}
+
+    existing = await db.execute(
+        select(StudentClassroom).where(StudentClassroom.student_id == student.id, StudentClassroom.classroom_id == classroom.id)
+    )
+    if existing.scalar_one_or_none():
+        return {"ok": False, "message": f"{student.name} 학생은 이미 '{classroom_name}' 반에 등록되어 있습니다."}
+
+    db.add(StudentClassroom(student_id=student.id, classroom_id=classroom.id))
+    await db.commit()
+    return {"ok": True, "message": f"{student.name} 학생을 '{classroom_name}' 반에 배정했습니다."}
+
+
+async def execute_student_update(params: dict, academy_id: int, db: AsyncSession) -> dict:
+    student_name = params.get("student_name")
+    if not student_name:
+        return {"ok": False, "message": "학생 이름을 알 수 없습니다."}
+
+    student = await _resolve_student(student_name, academy_id, db)
+    if not student:
+        return {"ok": False, "message": f"'{student_name}' 학생을 찾을 수 없습니다."}
+
+    field = params.get("field")
+    value = params.get("value")
+
+    if not field:
+        return {"ok": False, "message": f"변경할 항목을 알 수 없습니다. 예: '{student.name} 전화번호 010-1234-5678로 바꿔줘'"}
+
+    if value is None:
+        field_label = {"phone": "전화번호", "grade": "학년", "school": "학교", "monthly_fee": "수강료"}.get(field, field)
+        return {"ok": False, "message": f"변경할 {field_label} 값을 알 수 없습니다."}
+
+    setattr(student, field, value)
+    await db.commit()
+
+    field_label = {"phone": "전화번호", "grade": "학년", "school": "학교", "monthly_fee": "수강료"}.get(field, field)
+    return {"ok": True, "message": f"{student.name} 학생 {field_label}을(를) '{value}'(으)로 변경했습니다."}
+
+
+async def execute_grade_query(params: dict, academy_id: int, db: AsyncSession) -> dict:
+    student_name = params.get("student_name")
+    if not student_name:
+        return {"ok": False, "message": "학생 이름을 알 수 없습니다."}
+
+    student = await _resolve_student(student_name, academy_id, db)
+    if not student:
+        return {"ok": False, "message": f"'{student_name}' 학생을 찾을 수 없습니다."}
+
+    result = await db.execute(
+        select(Grade)
+        .where(Grade.student_id == student.id, Grade.academy_id == academy_id)
+        .order_by(Grade.date.desc())
+        .limit(5)
+    )
+    grades = result.scalars().all()
+    if not grades:
+        return {"ok": True, "message": f"{student.name} 학생의 성적 기록이 없습니다."}
+
+    type_label = {"school": "내신", "mock": "모의", "academy": "학원"}
+    items = [f"{g.exam_name}({type_label.get(g.exam_type, g.exam_type)}) {g.score}/{g.total_score}점" for g in grades]
+    return {"ok": True, "message": f"{student.name} 최근 성적 — {' / '.join(items)}"}
+
+
 async def execute_student_query(params: dict, academy_id: int, db: AsyncSession) -> dict:
     student_name = params.get("student_name")
 
@@ -279,12 +542,21 @@ async def execute_student_query(params: dict, academy_id: int, db: AsyncSession)
 # ── 메인 엔드포인트 ───────────────────────────────────────
 
 INTENT_HELP = {
-    "attendance_set":    "예: '오늘 김민수 결석', '박철수 지각 처리해줘'",
-    "attendance_query":  "예: '오늘 출석 현황', '이번주 결석자 알려줘'",
-    "payment_set":       "예: '김민수 이번달 납부 완료', '이지연 수납 처리'",
-    "payment_query":     "예: '이번달 미납자', '중등수학A 납부 현황'",
-    "counseling_query":  "예: '이번주 상담 일정', '예정된 상담 알려줘'",
-    "student_query":     "예: '김민수 연락처', '재원생 몇 명이야'",
+    "attendance_set":      "예: '오늘 김민수 결석', '박철수 지각 처리해줘'",
+    "attendance_query":    "예: '오늘 출석 현황', '이번주 결석자 알려줘'",
+    "attendance_history":  "예: '김민수 이번달 출석 기록', '이지연 몇 번 왔어'",
+    "at_risk_query":       "예: '출석 위험한 학생', '많이 빠진 학생 알려줘'",
+    "payment_set":         "예: '김민수 이번달 납부 완료', '이지연 수납 처리'",
+    "payment_query":       "예: '이번달 미납자', '중등수학A 납부 현황'",
+    "payment_cancel":      "예: '김민수 납부 취소', '이지연 이번달 수납 취소'",
+    "payment_summary":     "예: '이번달 수납률 어때', '3월 수납 현황'",
+    "counseling_query":    "예: '이번주 상담 일정', '예정된 상담 알려줘'",
+    "counseling_create":   "예: '김민수 다음주 화요일 상담 잡아줘', '이지연 3월 5일 상담 등록'",
+    "counseling_history":  "예: '김민수 상담 기록 있어', '이지연 상담 내역 알려줘'",
+    "student_query":       "예: '김민수 연락처', '재원생 몇 명이야'",
+    "student_update":      "예: '김민수 전화번호 010-1234-5678로 바꿔줘', '이지연 학년 고2로 변경'",
+    "student_assign":      "예: '김민수 중등수학A 반에 넣어줘', '이지연 영어회화 반 배정해줘'",
+    "grade_query":         "예: '김민수 최근 성적 알려줘', '이지연 성적 조회'",
 }
 
 QUICK_CHIPS = [
@@ -338,16 +610,32 @@ async def nlp_command(
         result = await execute_attendance_set(params, academy_id, membership.user_id, db)
     elif intent == "attendance_query":
         result = await execute_attendance_query(params, academy_id, db)
+    elif intent == "attendance_history":
+        result = await execute_attendance_history(params, academy_id, db)
+    elif intent == "at_risk_query":
+        result = await execute_at_risk_query(academy_id, db)
     elif intent == "payment_set":
         result = await execute_payment_set(params, academy_id, db)
     elif intent == "payment_query":
         result = await execute_payment_query(params, academy_id, db)
+    elif intent == "payment_cancel":
+        result = await execute_payment_cancel(params, academy_id, db)
+    elif intent == "payment_summary":
+        result = await execute_payment_summary(params, academy_id, db)
     elif intent == "counseling_query":
         result = await execute_counseling_query(params, academy_id, db)
     elif intent == "counseling_create":
-        result = {"ok": False, "message": "상담 예약은 상담일지 페이지에서 진행해주세요.", "hint": "날짜·유형 입력이 필요합니다."}
+        result = await execute_counseling_create(params, academy_id, membership.user_id, db)
+    elif intent == "counseling_history":
+        result = await execute_counseling_history(params, academy_id, db)
     elif intent == "student_query":
         result = await execute_student_query(params, academy_id, db)
+    elif intent == "student_update":
+        result = await execute_student_update(params, academy_id, db)
+    elif intent == "student_assign":
+        result = await execute_student_assign(params, academy_id, db)
+    elif intent == "grade_query":
+        result = await execute_grade_query(params, academy_id, db)
     else:
         result = {"ok": False, "message": "아직 지원하지 않는 명령입니다."}
 
@@ -383,6 +671,8 @@ async def nlp_hints():
                 "examples": [
                     "예정된 상담 알려줘",
                     "이번주 상담 일정",
+                    "김민수 다음주 화요일 상담 잡아줘",
+                    "이지연 상담 기록 있어?",
                 ]
             },
             {
@@ -391,6 +681,18 @@ async def nlp_hints():
                     "김민수 연락처",
                     "재원생 몇 명이야",
                     "이지연 학부모 번호",
+                    "김민수 중등수학A 반에 넣어줘",
+                    "이지연 전화번호 010-1234-5678로 바꿔줘",
+                    "김민수 이번달 출석 기록",
+                    "출석 위험한 학생 알려줘",
+                    "김민수 최근 성적 알려줘",
+                ]
+            },
+            {
+                "name": "수납",
+                "examples": [
+                    "이번달 수납률 어때",
+                    "김민수 납부 취소",
                 ]
             },
         ]

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2, UserPlus, Copy, Download, Check, AlertTriangle } from 'lucide-react';
+import { Trash2, UserPlus, Copy, Download, Check, AlertTriangle, ExternalLink } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../lib/auth';
 
@@ -282,13 +282,44 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* 학부모 포털 */}
+      <div className="bg-white rounded-xl border p-6 max-w-lg">
+        <h3 className="text-lg font-semibold mb-1">학부모 포털</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          학부모가 전화번호로 로그인해 자녀의 출석·성적·납부 현황을 확인하는 페이지입니다.
+          아래 링크를 학부모에게 공유하세요.
+        </p>
+        <div className="flex gap-2">
+          <input
+            readOnly
+            value={`${window.location.origin}/parent`}
+            className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 text-sm outline-none"
+          />
+          <button
+            onClick={() => copyToClipboard(`${window.location.origin}/parent`, 'parent')}
+            className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm flex items-center gap-1"
+          >
+            {copiedField === 'parent' ? <><Check size={14} className="text-green-600" /> 복사됨</> : <><Copy size={14} /> 복사</>}
+          </button>
+          <a
+            href="/parent"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-1"
+          >
+            <ExternalLink size={14} /> 열기
+          </a>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">학부모는 등록된 전화번호로 자동 인증됩니다.</p>
+      </div>
+
       {/* NFC 키오스크 */}
       <div className="bg-white rounded-xl border p-6 max-w-lg">
         <h3 className="text-lg font-semibold mb-1">NFC 키오스크 프로그램</h3>
         <p className="text-sm text-gray-500 mb-5">ACR1252U USB 리더기를 사용하는 학원용 출석 체크 프로그램입니다.</p>
 
         <button onClick={downloadKiosk} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mb-5">
-          <Download size={16} /> 키오스크 프로그램 다운로드
+          <Download size={16} /> 키오스크 인스톨러 다운로드 (.exe)
         </button>
 
         <div className="space-y-3 mb-4">

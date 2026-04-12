@@ -58,13 +58,16 @@ def list_readers(ctx):
     rv = winscard.SCardListReadersA(ctx, None, buf, byref(length))
     if rv != SCARD_S_SUCCESS:
         return []
-    # Multi-string parsing
+    # Multi-string parsing (mbcs: Windows 시스템 코드페이지, 한글 환경 대응)
     readers = []
     current = b""
     for i in range(length.value):
         if buf[i] == b"\x00":
             if current:
-                readers.append(current.decode("ascii", errors="ignore"))
+                try:
+                    readers.append(current.decode("mbcs"))
+                except (UnicodeDecodeError, LookupError):
+                    readers.append(current.decode("utf-8", errors="replace"))
                 current = b""
         else:
             current += buf[i]
@@ -74,8 +77,13 @@ def list_readers(ctx):
 def connect_card(ctx, reader_name):
     card = c_void_p()
     protocol = c_ulong()
+    # mbcs: Windows 시스템 코드페이지 (한글 환경 포함) 대응
+    try:
+        encoded = reader_name.encode("mbcs")
+    except (UnicodeEncodeError, LookupError):
+        encoded = reader_name.encode("utf-8", errors="replace")
     rv = winscard.SCardConnectA(
-        ctx, reader_name.encode("ascii"), SCARD_SHARE_SHARED,
+        ctx, encoded, SCARD_SHARE_SHARED,
         SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, byref(card), byref(protocol)
     )
     return card, protocol, rv

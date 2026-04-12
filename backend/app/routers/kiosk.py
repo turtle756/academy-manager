@@ -2,16 +2,30 @@ import io
 import zipfile
 from pathlib import Path
 
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse, StreamingResponse
 
 router = APIRouter()
 
 
-def _find_nfc_relay_dir() -> Path | None:
-    """nfc-relay 폴더 위치 탐색 (Docker / 로컬 모두)"""
+def _find_installer() -> Path | None:
+    """인스톨러 EXE 위치 탐색"""
     candidates = [
-        Path(__file__).parent.parent.parent.parent / "nfc-relay",  # /app/nfc-relay
+        Path(__file__).parent.parent / "static" / "ClassManager_Kiosk_Setup.exe",
+        Path("/app/app/static/ClassManager_Kiosk_Setup.exe"),
+        Path(__file__).parent.parent.parent.parent / "nfc-relay" / "dist" / "ClassManager_Kiosk_Setup.exe",
+        Path(__file__).parent.parent.parent / "nfc-relay" / "dist" / "ClassManager_Kiosk_Setup.exe",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return None
+
+
+def _find_nfc_relay_dir() -> Path | None:
+    """nfc-relay 폴더 위치 탐색 (ZIP fallback용)"""
+    candidates = [
+        Path(__file__).parent.parent.parent.parent / "nfc-relay",
         Path(__file__).parent.parent.parent / "nfc-relay",
         Path("/app/nfc-relay"),
     ]
@@ -22,10 +36,22 @@ def _find_nfc_relay_dir() -> Path | None:
 
 
 @router.get("/download")
-async def download_kiosk_zip():
-    """NFC 키오스크 프로그램 ZIP 다운로드"""
+async def download_kiosk():
+    """NFC 키오스크 인스톨러 다운로드.
+    인스톨러 EXE가 있으면 EXE를, 없으면 ZIP으로 fallback.
+    """
+    # 인스톨러 EXE 우선
+    installer = _find_installer()
+    if installer:
+        return FileResponse(
+            path=str(installer),
+            media_type="application/octet-stream",
+            filename="ClassManager_Kiosk_Setup.exe",
+        )
+
     nfc_dir = _find_nfc_relay_dir()
 
+    # fallback: ZIP (인스톨러 빌드 전 or 개발 환경)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         if nfc_dir:
@@ -34,32 +60,25 @@ async def download_kiosk_zip():
                 if path.exists():
                     zf.write(path, arcname=file)
 
-        # README 추가
         readme = """ClassManager NFC 키오스크
 ========================
 
-설치:
+[권장] 인스톨러 버전을 사용하세요.
+관리자 페이지 설정 탭에서 최신 인스톨러를 다운로드할 수 있습니다.
+
+이 ZIP은 개발/임시용입니다.
+
+실행 전 준비:
 1. Python 3.8+ 설치 (https://www.python.org/downloads/)
+   - 설치 시 "Add Python to PATH" 반드시 체크
 2. USB NFC 리더기 (ACR1252U) PC에 연결
 
 실행:
-1. 이 폴더의 "키오스크_실행.bat" 더블클릭
-2. 브라우저가 자동으로 열립니다 (http://localhost:8888)
-3. 우측 상단 구석을 3초 길게 누르면 관리자 모드 진입 (기본 PIN: 0000)
-4. 설정 탭에서 토큰과 학원 ID 입력 후 저장
-5. 카드 등록 탭에서 학생별로 NFC 카드 등록
-
-사용:
-- 학생: 리더기에 카드 터치만 하면 자동 출석
-- 관리자: 우측 상단 3초 길게 누르기 → PIN 입력 → 관리자 모드
-
-네트워크 접속:
-- 같은 WiFi의 태블릿/노트북에서도 접속 가능
-- 서버 실행 시 표시되는 네트워크 주소 사용 (예: http://192.168.0.5:8888)
-
-문제 발생 시:
-- 리더기가 인식 안 되면 USB 다시 꽂기
-- Python이 없다는 오류면 python.org에서 설치 후 "Add to PATH" 체크
+1. "키오스크_실행.bat" 우클릭 → 속성 → 차단 해제 체크 → 확인
+2. "키오스크_실행.bat" 더블클릭
+3. 브라우저가 자동으로 열립니다 (http://localhost:8888)
+4. 우측 상단 구석을 3초 길게 누르면 관리자 모드 (기본 PIN: 0000)
+5. 설정 탭에서 토큰·학원 ID 입력 후 저장
 """
         zf.writestr("README.txt", readme)
 
